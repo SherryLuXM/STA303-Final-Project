@@ -65,16 +65,16 @@ postcode <- dataset %>%
 
 # Load and tidy income data from Canadian census
 options(cancensus.api_key = "CensusMapper_c35605992b233a54f504b09dcd8d5687",
-        cancensus.cache_path = "cache") # this sets a folder for your cache
+        cancensus.cache_path = "cache")
 
 regions <- list_census_regions(dataset = "CA21")
 
 regions_filtered <-  regions %>% 
-  filter(level == "CSD") %>% # Figure out what CSD means in Census data
+  filter(level == "CSD") %>% # CSD are Census Subdivision; it is a geographic level
   as_census_region_list()
 
-census_data_csd <- get_census(dataset='CA16', regions = regions_filtered,
-                          vectors=c("v_CA16_2397"),
+census_data_csd <- get_census(dataset='CA21', regions = regions_filtered,
+                          vectors=c("v_CA21_2397"),
                           level='CSD', geo_format = "sf")
 
 ## Simplify to only needed variables
