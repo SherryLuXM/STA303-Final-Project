@@ -5,7 +5,7 @@ author: "Rumteen Taheri Dolatabdi
 Antony Dudnikov
 Xiaoman Lu
 Opal Ashok Patil"
-date: 2022-04-07
+date: "07/04/2022"
 lang: "en"
 output:
  pdf_document:
@@ -32,11 +32,14 @@ linkcolor: black
 # Consultant Profiles
 
 \newpage
-# Code
 
-```{r setup_portfolio, message=FALSE}
+# Appendix: Code
+
+```{r setup, message=FALSE}
 library(tidyverse)
-library(dplyr)
-library(lme4)
-last3digplus <- 100 + 030
+library(polite)
+library(rvest)
+```
+
+```{r}
 ```
