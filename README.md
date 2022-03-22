@@ -3,7 +3,7 @@ Fitness Tracker customer and product research--STA303 Methods of Data Analysis I
 
 For project information, please go to **https://sta303-bolton.github.io/sta303-w22-final-project/outsiders.html**
 
-## Resources:
+## Resources
 * Set up Jupyter Notebook: https://rstudio-with-jupyerhub-uoft.netlify.app/#5
 * Use R Markdown: https://bookdown.org/yihui/rmarkdown/
 
