@@ -32,14 +32,55 @@ linkcolor: black
 # Consultant Profiles
 
 \newpage
-
-# Appendix: Code
+# Code
 
 ```{r setup, message=FALSE}
 library(tidyverse)
 library(polite)
 library(rvest)
+library(haven)
+library(cancensus)
 ```
 
 ```{r}
+# webscraping
+url <- "https://fitnesstrackerinfohub.netlify.app"
+
+target <- bow(url,
+              user_agent = "sherryxiaoman.lu@mail.utoronto.ca for STA303/1002 final project",
+              force = TRUE)
+target
+
+html <- scrape(target)
+
+device_data <- html %>% 
+  html_elements("table") %>% 
+  html_table()
+
+# load postal code data
+dataset = read_sav("pccfNat_fccpNat_082021sav.sav")
+
+postcode <- dataset %>% 
+  select(PC, CSDuid)
+
+# Load and tidy income data from Canadian census
+options(cancensus.api_key = "CensusMapper_c35605992b233a54f504b09dcd8d5687",
+        cancensus.cache_path = "cache") # this sets a folder for your cache
+
+regions <- list_census_regions(dataset = "CA21")
+
+regions_filtered <-  regions %>% 
+  filter(level == "CSD") %>% # Figure out what CSD means in Census data
+  as_census_region_list()
+
+census_data_csd <- get_census(dataset='CA16', regions = regions_filtered,
+                          vectors=c("v_CA16_2397"),
+                          level='CSD', geo_format = "sf")
+
+## Simplify to only needed variables
+median_income <- census_data_csd %>% 
+  as_tibble() %>% 
+  select(CSDuid = GeoUID, contains("median"), Population) %>% 
+  mutate(CSDuid = parse_number(CSDuid)) %>% 
+  rename(hhld_median_inc = 2)
 ```
