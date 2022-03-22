@@ -1,0 +1,42 @@
+---
+title: "Mingar Customer and Product Report"
+subtitle: "By Data Analytics Inc."
+author: "Rumteen Taheri Dolatabdi
+Antony Dudnikov
+Xiaoman Lu
+Opal Ashok Patil"
+date: 2022-04-07
+lang: "en"
+output:
+ pdf_document:
+  template: template.tex
+  toc: true
+  toc_depth: 2
+titlepage: true
+titlepage-color: "002A5C"
+titlepage-text-color: "FFFFFF"
+titlepage-rule-color: "FFFFFF"
+titlepage-rule-height: 2
+urlcolor: blue
+linkcolor: black
+---
+
+\listoffigures
+
+\newpage
+
+# Executive Summary
+
+\newpage
+
+# Consultant Profiles
+
+\newpage
+# Code
+
+```{r setup_portfolio, message=FALSE}
+library(tidyverse)
+library(dplyr)
+library(lme4)
+last3digplus <- 100 + 030
+```
