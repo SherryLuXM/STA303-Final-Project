@@ -1,0 +1,65 @@
+---
+title: "Data preparation"
+output:
+  pdf_document: default
+---
+
+# Instructions
+
+- You only need to submit the .Rmd of this file, not a PDF.
+
+- You should __comment__ your code clearly to show what you've done to prepare the data.
+
+- The purpose of this file is to use the data in the `data-raw` folder to create the data you will use in the report. The data you will use in the report should be saved in the `data` folder. It is good professional practice to make sure you're never directly modifying your raw data, but instead creating new datasets based on merges/manipulations that you need to reuse.
+
+- Make sure you've taken a look at the hints for the web scraping and census API. 
+
+- You may find the `write_rds()` function from the `readr` package helpful (it is loaded as part of the `tidyverse`).
+
+- You do not need to keep the structure below.
+
+# Set up
+
+```{r, libraries}
+library(cancensus)
+```
+
+# Loading client data
+
+```{r}
+cust_dev <- readRDS("data-raw/cust_dev.Rds")
+cust_sleep <- readRDS("data-raw/cust_sleep.Rds")
+customer <- readRDS("data-raw/customer.Rds")
+device <- readRDS("data-raw/device.Rds")
+```
+
+# Getting external data
+
+## Web scraping industry data
+
+```{r}
+html <- load("data-raw/html.RData")
+
+device_data <- html %>% 
+  html_elements("table") %>% 
+  html_table() %>% 
+  pluck(1)
+
+save(device_data, file = "data/device_data.RData")
+```
+
+# Census API
+
+```{r}
+## Simplify to only needed variables
+census_data-csd <- load("data-raw/census_data_csd.RData")
+
+median_income <- census_data_csd %>% 
+  as_tibble() %>% 
+  select(CSDuid = GeoUID, contains("median"), Population) %>% 
+  mutate(CSDuid = parse_number(CSDuid)) %>% 
+  rename(hhld_median_inc = 2)
+
+save(median_income, file = "data/median_income.RData")
+```
+
