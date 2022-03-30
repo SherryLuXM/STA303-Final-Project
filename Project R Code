@@ -116,7 +116,7 @@ device_data <- html %>%
   html_elements("table") %>% 
   html_table()
 
-save(device_data, file = "device_data.RData")
+save(device_data, file = "data/device_data.RData")
 ```
 
 ## Accessing Census data on median household income
@@ -142,7 +142,7 @@ median_income <- census_data_csd %>%
   mutate(CSDuid = parse_number(CSDuid)) %>% 
   rename(hhld_median_inc = 2)
 
-save(median_income, file = "median_income.RData")
+save(median_income, file = "data/median_income.RData")
 ```
 
 ## Accessing postcode conversion files
@@ -150,5 +150,5 @@ save(median_income, file = "median_income.RData")
 # load postal code data
 postcode = read_sav("data-raw/pccfNat_fccpNat_082021sav.sav", col_select = c(PC, CSDuid))
 
-save(postcode, file = "postcode.RData")
+save(postcode, file = "data/postcode.RData")
 ```
