@@ -112,7 +112,12 @@ target
 
 html <- scrape(target)
 
-save(html, file = "data-raw/html.RData")
+device_data <- html %>% 
+  html_elements("table") %>% 
+  html_table() %>% 
+  pluck(1)
+
+save(device_data, file = "data-raw/device_data.RData")
 ```
 
 ## Accessing Census data on median household income
@@ -130,7 +135,13 @@ census_data_csd <- get_census(dataset='CA16', regions = regions_filtered,
                           vectors=c("v_CA16_2397"),
                           level='CSD', geo_format = "sf")
 
-save(census_data_csd, file = "data-raw/census_data_csd.RData")
+median_income <- census_data_csd %>% 
+  as_tibble() %>% 
+  select(CSDuid = GeoUID, contains("median"), Population) %>% 
+  mutate(CSDuid = parse_number(CSDuid)) %>% 
+  rename(hhld_median_inc = 2)
+
+save(median_income, file = "data-raw/median_income.RData")
 ```
 
 ## Accessing postcode conversion files
