@@ -8,7 +8,4 @@ For project information, please go to **https://sta303-bolton.github.io/sta303-w
 * Use R Markdown: https://bookdown.org/yihui/rmarkdown/
 
 ## Current Status
-* Datasets loaded and processed. Download the zip file and upload the data files to data-raw on JupyterHub to work on the next step.
-
-## Jupyter Notebook
-https://jupyter.utoronto.ca/user/8f858fc9-4593-459f-90d8-c30b87224ff8/rstudio/
+* Datasets are consolidated. Move on to data description and modeling.
