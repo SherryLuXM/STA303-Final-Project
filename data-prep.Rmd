@@ -52,7 +52,7 @@ device_data <- html %>%
   html_table() %>% 
   pluck(1)
 
-save(device_data, file = "data-raw/device_data.RData")
+saveRDS(device_data, file = "data-raw/device_data.Rds")
 ```
 
 # Census API
@@ -78,5 +78,24 @@ median_income <- census_data_csd %>%
   mutate(CSDuid = parse_number(CSDuid)) %>% 
   rename(hhld_median_inc = 2)
 
-save(median_income, file = "data-raw/median_income.RData")
+saveRDS(median_income, file = "data-raw/median_income.Rds")
+```
+## Further Data Manipulation
+```{r}
+postcode<- readRDS("data-raw/postcode.Rds")
+median_income <- readRDS("data-raw/median_income.Rds")
+device_data <- readRDS("data-raw/device_data.Rds")
+PC_mi <- left_join(postcode, median_income, by = "CSDuid")
+colnames(PC_mi)[1] <- "postcode" # change column name "PC" to "postcode" to allow the left_join between customer and PC_mi
+cust_mi <- left_join(customer, PC_mi, by = "postcode") # match customers to their geographical median income
+mi_devid <- left_join(cust_mi, cust_dev, by = "cust_id") # add cust_dev to the data frame
+head(cust_mi)
+head(mi_devid) # there can be multiple customers using the same device
+mi_line <- left_join(mi_devid, device, by = "dev_id") # add device information to the data frame
+head(mi_line)
+today <- as.Date("2022-04-07")
+mi_line <- mutate(mi_line, age = as.numeric(difftime(today, dob, units = "weeks"))/52.25)
+head(mi_line)
+# full <- select(mi_line, cust_id, line, age, sex, pronouns, emoji_modifier,  hhld_median_inc, population, dev_id, device_name, released)
+saveRDS(mi_line, file = "data-raw/full.Rds")
 ```
