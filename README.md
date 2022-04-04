@@ -14,7 +14,7 @@ For project information, please go to **https://sta303-bolton.github.io/sta303-w
 ## Current Status
 * Datasets are consolidated at `full.Rds`. Move on to data description and modeling.
 
-# see original_instructions file for the report template!
+# see `original_instructions` file for the report template!
 
 ## Roadmap
 - [x] web scraping, postcode conversion file, Census income data
