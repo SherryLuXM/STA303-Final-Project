@@ -16,7 +16,7 @@ For project information, please go to **https://sta303-bolton.github.io/sta303-w
 - [x] web scraping, postcode conversion file, Census income data
 - [x] data consolidation
 - [x] data description
-- [] cleaning and modeling for new and traditional customer comparison
-- [] cleaning and modeling for sleep tracking quality and race
-- [] report research and writing
-- [] final editing
+- [ ] cleaning and modeling for new and traditional customer comparison
+- [ ] cleaning and modeling for sleep tracking quality and race
+- [ ] report research and writing
+- [ ] final editing
