@@ -80,9 +80,10 @@ median_income <- census_data_csd %>%
 
 saveRDS(median_income, file = "data-raw/median_income.Rds")
 ```
+
 ## Further Data Manipulation
 ```{r}
-postcode<- readRDS("data-raw/postcode.Rds")
+postcode <- readRDS("data-raw/postcode.Rds")
 median_income <- readRDS("data-raw/median_income.Rds")
 device_data <- readRDS("data-raw/device_data.Rds")
 PC_mi <- left_join(postcode, median_income, by = "CSDuid")
@@ -96,6 +97,9 @@ head(mi_line)
 today <- as.Date("2022-04-07")
 mi_line <- mutate(mi_line, age = as.numeric(difftime(today, dob, units = "weeks"))/52.25)
 head(mi_line)
-# full <- select(mi_line, cust_id, line, age, sex, pronouns, emoji_modifier,  hhld_median_inc, population, dev_id, device_name, released)
+colnames(device_data)[1] <- "device_name" 
+mi_line <- left_join(mi_line, device_data, by = "device_name")
+head(mi_line)
+mi_line <- subset(mi_line, select = -c(dob, postcode, line, CSDuid))
 saveRDS(mi_line, file = "data-raw/full.Rds")
 ```
