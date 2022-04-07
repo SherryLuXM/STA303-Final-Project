@@ -155,6 +155,8 @@ saveRDS(median_income, file = "data-raw/median_income.Rds")
 ```{r}
 # load postal code data
 postcode = read_sav("data-raw/pccfNat_fccpNat_082021sav.sav", col_select = c(PC, CSDuid))
-
+view(postcode)
+# postcode has duplicating rows
+postcode = unique(postcode) # delete duplicating rows
 saveRDS(postcode, file = "data-raw/postcode.Rds")
 ```
