@@ -160,3 +160,119 @@ view(postcode)
 postcode = unique(postcode) # delete duplicating rows
 saveRDS(postcode, file = "data-raw/postcode.Rds")
 ```
+
+## Process data for racial data modeling
+```{r}
+cust_sleep = readRDS("data-raw/cust_sleep.Rds")
+fullRds = readRDS("data-raw/full.Rds")
+full = inner_join(cust_sleep, fullRds)
+
+#glimpse(cust_sleep)
+#glimpse(fullRds)
+#glimpse(full)
+
+full <- full[!is.na(full$emoji_modifier),]
+full <- full %>%
+  mutate (skin_tone =  case_when(emoji_modifier == "U+1F3FB" ~ "light",
+                                 emoji_modifier == "U+1F3FC" ~ "medium-light",
+                                 emoji_modifier == "U+1F3FD" ~ "medium",
+                                 emoji_modifier == "U+1F3FE" ~ "medium-dark",
+                                 emoji_modifier == "U+1F3FF" ~ "dark",))
+full$skin_tone <- ordered(full$skin_tone, levels = c('light', 'medium-light', 'medium', 'medium-dark', 'dark'))
+full <- mutate(full, freq = flags/duration*60)
+
+
+racial_data <- select(full, cust_id, skin_tone, duration, flags)
+#glimpse(racial_data)
+saveRDS(racial_data, file = "data/racial_data.Rds")
+```
+## Assumptions Check
+1.Poisson Response The response variable is a count per unit of time or space, described by a Poisson distribution.
+2.Independence The observations must be independent of one another.
+3.Mean=Variance By definition, the mean of a Poisson random variable must be equal to its variance.
+4.Linearity The log of the mean rate, log(λ), must be a linear function of x
+
+## Exploratory Data Analysis
+```{r}
+mean(full$flags)
+var(full$flags)
+
+prop.table(table(full$skin_tone))
+
+full  %>% group_by(skin_tone)  %>% 
+  summarise(mean=mean(flags), sd=sd(flags), 
+            var=var(flags), n=n())
+
+
+mean(full$freq)
+var(full$freq)
+full  %>% group_by(skin_tone)  %>% 
+  summarise(mean=mean(freq), 
+            var=var(freq), n=n()) %>% 
+knitr::kable(
+      caption="Compare mean and variance of flag frequency within each skin color group.",
+      col.names = c("Skin Tone", "Mean", "Variance", "n"))
+
+```
+The table shows that the variance of flags is bigger than the mean for all skin tone groups, with increasing discrepancy as the skin tone darkens. It is an violation of the third assumption for Poisson distribution.
+For <freq>, the variance is always smaller than the mean.
+```{r}
+sumStats <- full %>% group_by(skin_tone) %>% 
+  summarise(mnfreq = mean(freq),
+            logmnfreq = log(mnfreq), n=n())
+ggplot(sumStats, aes(x=skin_tone, y=logmnfreq)) +
+  geom_point()+
+  geom_smooth(method = "loess", size = 1.5)+
+  xlab("Customer Skin Tone") +
+  ylab("Log of the empirical mean frequency of flags") +
+  theme_minimal()
+```
+It shows a linear relationship between skin tone and log of frequency, so assumption 4 for the Poisson model is validated.
+```{r}
+
+```
+
+```{r}
+
+```
+
+## Racial data modeling
+```{r}
+#Fit the GLMM
+racial_data <- readRDS("data/racial_data.Rds")
+
+model1 <- glmer(flags~skin_tone+(1|cust_id), family=poisson(link = log), offset = log(duration), data=racial_data)
+
+
+summary(model1)
+#exp(confint(model1))
+
+ggplot(na.omit(full), aes(x=skin_tone, fill = sex)) +
+geom_bar()
+```
+
+```{r}
+confint(model1)
+exp(confint(model1))
+```
+
+## null model and chi-square test
+```{r}
+
+
+```
+# show interaction term is not needed
+```{r}
+
+
+```
+# show additional terms are not needed
+
+# residual plots
+
+# goodness-of-fit test
+```{r}
+
+
+```
+
