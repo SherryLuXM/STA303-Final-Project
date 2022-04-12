@@ -203,6 +203,7 @@ There are no customers who live together, so the flag issues are not caused by p
 
 ## Exploratory Data Analysis
 ```{r}
+full <- readRDS("data-raw/racialfull.Rds")
 mean(full$flags)
 var(full$flags)
 
@@ -221,8 +222,6 @@ full  %>% group_by(skin_tone)  %>%
 knitr::kable(
       caption="Compare mean and variance of flag frequency within each skin color group.",
       col.names = c("Skin Tone", "Mean", "Variance", "n"))
-
-#[insert box plot]
 ```
 The table shows that the variance of flags is bigger than the mean for all skin tone groups, with increasing discrepancy as the skin tone darkens. It is an violation of the third assumption for Poisson distribution.
 For <freq>, the variance is always smaller than the mean.
@@ -265,10 +264,8 @@ cdf[order(-abs(cdf$Correlation)),]
 ## Racial data modeling
 ```{r}
 #Fit the GLMM
-racial_data <- readRDS("data/racial_data.Rds")
 
-model1 <- glm(flags~skin_tone+(1|cust_id), family=quasipoisson(link = log), offset = log(duration), data=racial_data)
-# or glm.nb(flags~skin_tone+(1|cust_id), offset = log(duration), data=racial_data) for negative binomial
+model1 <- glmer.nb(flags~skin_tone+(1|cust_id), offset = log(duration), data=full)
 
 summary(model1)
 #exp(confint(model1))
