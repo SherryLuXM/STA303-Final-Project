@@ -165,6 +165,9 @@ saveRDS(postcode, file = "data-raw/postcode.Rds")
 ```{r}
 cust_sleep = readRDS("data-raw/cust_sleep.Rds")
 fullRds = readRDS("data-raw/full.Rds")
+
+# remove duplicates, otherwise it would affect the mean and variance for different groups
+fullRds <- fullRds[!duplicated(fullRds$cust_id),]
 full = inner_join(cust_sleep, fullRds)
 
 #glimpse(cust_sleep)
@@ -179,13 +182,19 @@ full <- full %>%
                                  emoji_modifier == "U+1F3FE" ~ "medium-dark",
                                  emoji_modifier == "U+1F3FF" ~ "dark",))
 full$skin_tone <- ordered(full$skin_tone, levels = c('light', 'medium-light', 'medium', 'medium-dark', 'dark'))
-full <- mutate(full, freq = flags/duration*60)
+full <- mutate(full, freq = flags/duration*60) # to account for sampling efforts, that the more someone uses a device, the more flags there might be, and get number of flags per hour <freq>
 
-
-racial_data <- select(full, cust_id, skin_tone, duration, flags)
-#glimpse(racial_data)
-saveRDS(racial_data, file = "data/racial_data.Rds")
+saveRDS(full, file ="data-raw/racialfull.Rds")
 ```
+
+## compile mean freq for each customer
+## remove observations where there is a significant relationship between freq and dates? But we shouldn't discount for dark race, the device malfunction faster. Analyze them separately? Change dates to days using the device
+```{r}
+who <- fullRds[duplicated(fullRds$postcode),] 
+who
+```
+There are no customers who live together, so the flag issues are not caused by physical proximity.
+
 ## Assumptions Check
 1.Poisson Response The response variable is a count per unit of time or space, described by a Poisson distribution.
 2.Independence The observations must be independent of one another.
@@ -197,10 +206,10 @@ saveRDS(racial_data, file = "data/racial_data.Rds")
 mean(full$flags)
 var(full$flags)
 
-prop.table(table(full$skin_tone))
+prop.table(table(full$skin_tone)) # balanced, so don't need to concern about the effect of inaccurate emoji due to default
 
 full  %>% group_by(skin_tone)  %>% 
-  summarise(mean=mean(flags), sd=sd(flags), 
+  summarise(mean=mean(flags), 
             var=var(flags), n=n())
 
 
@@ -213,27 +222,44 @@ knitr::kable(
       caption="Compare mean and variance of flag frequency within each skin color group.",
       col.names = c("Skin Tone", "Mean", "Variance", "n"))
 
+#[insert box plot]
 ```
 The table shows that the variance of flags is bigger than the mean for all skin tone groups, with increasing discrepancy as the skin tone darkens. It is an violation of the third assumption for Poisson distribution.
 For <freq>, the variance is always smaller than the mean.
+
+```{r}
+ggplot(full, aes(x=flags)) + 
+  geom_histogram() +
+  theme_minimal()
+```
+
+
 ```{r}
 sumStats <- full %>% group_by(skin_tone) %>% 
-  summarise(mnfreq = mean(freq),
-            logmnfreq = log(mnfreq), n=n())
-ggplot(sumStats, aes(x=skin_tone, y=logmnfreq)) +
+  summarise(mnflags = mean(flags),
+            logmnflags = log(mnflags), n=n())
+ggplot(sumStats, aes(x=skin_tone, y=logmnflags)) +
   geom_point()+
   geom_smooth(method = "loess", size = 1.5)+
   xlab("Customer Skin Tone") +
-  ylab("Log of the empirical mean frequency of flags") +
+  ylab("Log of the empirical mean of flags") +
   theme_minimal()
 ```
 It shows a linear relationship between skin tone and log of frequency, so assumption 4 for the Poisson model is validated.
 ```{r}
-
+ggplot(full, aes(x = skin_tone, y = freq)) +
+  geom_boxplot() +
+  ylab("Flags for one customer per hour") +
+  theme_minimal()
 ```
 
 ```{r}
-
+cors <- NULL
+for (i in 1:13){
+  cors <- c(cors, cor(train$latitude, train[, (i+1)]))
+}
+cdf <- data.frame("Correlation" = cors, "Predictors" = pred)
+cdf[order(-abs(cdf$Correlation)),] 
 ```
 
 ## Racial data modeling
@@ -241,16 +267,22 @@ It shows a linear relationship between skin tone and log of frequency, so assump
 #Fit the GLMM
 racial_data <- readRDS("data/racial_data.Rds")
 
-model1 <- glmer(flags~skin_tone+(1|cust_id), family=poisson(link = log), offset = log(duration), data=racial_data)
-
+model1 <- glm(flags~skin_tone+(1|cust_id), family=quasipoisson(link = log), offset = log(duration), data=racial_data)
+# or glm.nb(flags~skin_tone+(1|cust_id), offset = log(duration), data=racial_data) for negative binomial
 
 summary(model1)
 #exp(confint(model1))
 
-ggplot(na.omit(full), aes(x=skin_tone, fill = sex)) +
+ggplot(full, aes(x=skin_tone, fill = sex)) +
 geom_bar()
 ```
+## Detect any outliers
+```{r}
 
+
+```
+
+# Wald-type confidence interval 
 ```{r}
 confint(model1)
 exp(confint(model1))
@@ -272,7 +304,5 @@ exp(confint(model1))
 
 # goodness-of-fit test
 ```{r}
-
-
+1-pchisq(model1$deviance, model1$df.residual)  
 ```
-
