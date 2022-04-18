@@ -1,0 +1,559 @@
+---
+title: "2022 Customer and Product Report"
+subtitle: "Subtitle that indicates findings"
+author: "Report prepared for MINGAR by Data Analytics Inc."
+date: 2022-04-07
+lang: "en"
+output:
+  pdf_document:
+    template: report.tex
+    toc: true
+    toc_depth: 2
+titlepage: true
+titlepage-color: "6C3082"
+titlepage-text-color: "FFFFFF"
+titlepage-rule-color: "FFFFFF"
+titlepage-rule-height: 2
+---
+
+```{r setup, message=FALSE}
+library(tidyverse)
+library(polite)
+library(rvest)
+library(haven)
+library(cancensus)
+library(lme4)
+# library(glmmTMB)
+```
+\newpage
+
+# Executive Summary
+
+_Guidelines for the executive summary:_
+
+* _No more than two pages_
+* _Language is appropriate for a non-technical audience_
+* _Bullet points are used where appropriate_
+*	_A small number of key visualizations and/or tables are included_
+*	_All research questions are addressed_
+
+\newpage
+# Technical report
+_This part of the report is much more comprehensive than the executive summary. The audience is statistics/data-minded people, but you should NOT include code or unformatted R output here._
+
+
+## Introduction
+
+_Provide a brief introduction to your report and outline what the report will cover. This section is valuable for setting scope and expectations. _
+
+### Research questions
+* Do the customers using the "Active" and "Advanced" line come from a different income base compared to the traditional customers
+* Do the devices' sleep tracking feature perform worse for users with darker skin?
+
+## Data Description and Preparation
+
+There are three files sourced externally. The data on the wearable models released by Mingar, specifically with the line name paired with each model to indicate if it belongs to one of the new lines or the traditional line, is on the website https://fitnesstrackerinfohub.netlify.app/. It is scrapable with a 12-second crawl delay. This information is useful to answer the first research question, when classifying the devices.
+
+The 2016 census data is the most current census data available. It is sourced through an API provided on https://censusmapper.ca/ and by using the R package Cancensus. The focus is the 58 census subdivisions, and their associated median household total income. 
+
+The Postal Code Conversion File with the reference date August 2021 is the latest conversion file available for the 2016 census. It matches postal codes with the geographical census subdivisions. We use the newest file because it is the most comprehensive with over 142 thousands more postal codes added, compared to the previous version. Some rows are repeating and some postal codes are associated with more than one census subdivision. This problem is solved by removing the duplicates. If the duplicates are present, it would affect the mean and variance values for different groups of customers and violate the independent observation assumptions for some models.
+
+There are four other files provided by Mingar. They include the customer information, customer ID matched to their device ID, device information associated with each device ID, and customer sleep tracking history. All the files, excluding sleep tracking history, are merged together into one dataset for ease of analysis. Specifically, the customer postal codes are matched with their associated census subdivisions through the Postal Code Conversion File, then matched to the median household total income at the specific census subdivisions. The other internal data files are joined together either by the customer ID or device ID. 
+
+Some changes are made to the variables. We create three additional variables: age, skin tone, and a boolean variable identifying whether a customer is new versus traditional. The age is calculated from customers' date of birth, referencing against April.7, 2022, and the skin tone is identified based on the emoji type the customers use. We categorize five types of skin tones: light, medium light, medium, medium dark, and dark. The customers who don't have emojis are removed from the dataset used in answering the second research question, because we are not able to identify their race based on the emojis for the analysis. The customers using devices from the Advanced or Active line are the new customers; the ones using devices from the Run line are the traditional customers. The new customers are given a value of one, while the traditional customers are assigned a value of zero, for the identifier variable.
+
+## Research Question 1: marketing analysis on new and traditional customer
+
+```{r dataInput, echo=FALSE}
+marketing_question_test <- readRDS("data/marketing_question_test.Rds")
+marketing_question_train <- readRDS("data/marketing_question_train.Rds")
+full <- rbind(marketing_question_test, marketing_question_train)
+```
+
+```{r customerDistributionBasedOnSex, echo=FALSE}
+new_customer_distribution_sex <- full %>%
+  ggplot(aes(as.factor(new_customer))) +
+  geom_bar(aes(fill = sex), width= 0.5) +
+  annotate("text", x = "0", y = 4500, label = str_c(toString(round(length(which(full$sex == "Female" & full$new_customer == 0))/length(which(full$new_customer == 0)), 2)), "%")) +
+  annotate("text", x = "0", y = 1500, label = str_c(toString(round(length(which(full$sex == "Male" & full$new_customer == 0))/length(which(full$new_customer == 0)), 2)), "%")) +
+  annotate("text", x = "0", y = 2600, label = str_c(toString(round(length(which(full$sex == "Intersex" & full$new_customer == 0))/length(which(full$new_customer == 0)), 2)), "%")) +
+  annotate("text", x = "1", y = 5500, label = str_c(toString(round(length(which(full$sex == "Female" & full$new_customer == 1))/length(which(full$new_customer == 1)), 2)), "%")) +
+  annotate("text", x = "1", y = 1800, label = str_c(toString(round(length(which(full$sex == "Male" & full$new_customer == 1))/length(which(full$new_customer == 1)), 2)), "%")) +
+  annotate("text", x = "1", y = 3400, label = str_c(toString(round(length(which(full$sex == "Intersex" & full$new_customer == 1))/length(which(full$new_customer == 1)), 2)), "%")) +
+  scale_x_discrete(labels = c("0" = "Old Customers", "1" = "New Customers")) +
+  theme_minimal() +
+  labs(x = "Customer Base",
+       y = "Count",
+       caption = "Count Distribution based on customer base and sex",
+       tag = "Fig 1: "
+       ) +
+  theme(plot.caption.position = "plot",
+        plot.caption =element_text(hjust = 0.25, size= 13, margin = margin(t = 25)),
+        plot.tag.position = c(0.05, 0.025))
+new_customer_distribution_sex
+```
+```{r distributionIncomeOnCustomerBase, echo=FALSE, warning=FALSE}
+customerbase_distribution_income <- full %>%
+  ggplot(aes(x=hhld_median_inc)) +
+  geom_histogram(fill = "dodgerblue2", binwidth = 7500, colour = "black") +
+  facet_wrap(~new_customer, nrow = 2, labeller = as_labeller(facet_label_names))+ 
+  theme_minimal()+
+  xlim(c(40000, 150000))+
+  labs(x = "Median Icome",
+       y = "Count",
+       caption = "Distribution of Median Income based on customer types",
+       tag = "Fig 3: "
+       )+
+    theme(plot.caption.position = "plot",
+        plot.caption =element_text(hjust = 0.25, size= 13, margin = margin(t = 25)),
+        plot.tag.position = c(0.06, 0.025))
+customerbase_distribution_income
+```
+
+```{r PoopulationDistributionBasedOnCustomerBase, echo=FALSE, warning=FALSE}
+customerbase_distribution_population1 <- full %>%
+  ggplot(aes(x=Population)) +
+  geom_histogram(aes(y = ..density.., fill = as.factor(new_customer)),colour = "black") +
+  scale_x_continuous(lim = c(0,150000))+
+  theme_minimal() + 
+  labs(
+       caption = "Distribution of Population of Customer based on customer types",
+       tag = "Fig 4: "
+       )+
+  theme(legend.position = "none",
+        plot.caption.position = "plot",
+        plot.caption =element_text(hjust = 0.25, size= 13, margin = margin(t = 25)),
+        plot.tag.position = c(0.04, 0.025))
+customerbase_distribution_population1
+
+customerbase_distribution_population2 <- full %>%
+  ggplot(aes(x=Population)) +
+  geom_histogram(aes(y = ..density.., fill = as.factor(new_customer)),colour = "black") +
+  scale_x_continuous(lim = c(150000, 3000000))+
+  scale_fill_discrete(name = "Customer Type", labels = c("Old Customer", "New Customer"))+
+  theme_minimal()+
+  labs(y = '',
+       x = 'Population',
+       axis.text.y = element_blank(),
+       axis.ticks = element_blank())
+customerbase_distribution_population2
+```
+
+```{r DistributionOfEmojiModifierBasedOnCustomerType, echo=FALSE}
+customer_boxplot_emoji <- full %>%
+  ggplot(aes(x = as.factor(emoji_modifier)))+
+  geom_bar(aes(fill = as.factor(new_customer)), colour = "black")+
+  annotate("text", x = "U+1F3FB", y = 2500, label = str_c(toString(round(length(which(full$emoji_modifier == "U+1F3FB" & full$new_customer == 0))/length(which(full$emoji_modifier == "U+1F3FB")), 2)), "%")) +
+  annotate("text", x = "U+1F3FB", y = 1000, label = str_c(toString(round(length(which(full$emoji_modifier == "U+1F3FB" & full$new_customer == 1))/length(which(full$emoji_modifier == "U+1F3FB")), 2)), "%")) +
+  annotate("text", x = "U+1F3FC", y = 2300, label = str_c(toString(round(length(which(full$emoji_modifier == "U+1F3FC" & full$new_customer == 0))/length(which(full$emoji_modifier == "U+1F3FC")), 2)), "%")) +
+  annotate("text", x = "U+1F3FC", y = 900, label = str_c(toString(round(length(which(full$emoji_modifier == "U+1F3FC" & full$new_customer == 1))/length(which(full$emoji_modifier == "U+1F3FC")), 2)), "%")) +
+  annotate("text", x = "U+1F3FD", y = 2100, label = str_c(toString(round(length(which(full$emoji_modifier == "U+1F3FD" & full$new_customer == 0))/length(which(full$emoji_modifier == "U+1F3FD")), 2)), "%")) +
+  annotate("text", x = "U+1F3FD", y = 800, label = str_c(toString(round(length(which(full$emoji_modifier == "U+1F3FD" & full$new_customer == 1))/length(which(full$emoji_modifier == "U+1F3FD")), 2)), "%")) +
+  annotate("text", x = "U+1F3FE", y = 2100, label = str_c(toString(round(length(which(full$emoji_modifier == "U+1F3FE" & full$new_customer == 0))/length(which(full$emoji_modifier == "U+1F3FE")), 2)), "%")) +
+  annotate("text", x = "U+1F3FE", y = 800, label = str_c(toString(round(length(which(full$emoji_modifier == "U+1F3FE" & full$new_customer == 1))/length(which(full$emoji_modifier == "U+1F3FE")), 2)), "%")) +
+  annotate("text", x = "U+1F3FF", y = 2100, label = str_c(toString(round(length(which(full$emoji_modifier == "U+1F3FF" & full$new_customer == 0))/length(which(full$emoji_modifier == "U+1F3FF")), 2)), "%")) +
+  annotate("text", x = "U+1F3FF", y = 800, label = str_c(toString(round(length(which(full$emoji_modifier == "U+1F3FF" & full$new_customer == 1))/length(which(full$emoji_modifier == "U+1F3FF")), 2)), "%")) +
+  scale_fill_discrete(name = "Customer Type", labels = c("Old Customer", "New Customer"))+
+  scale_x_discrete(labels = c('Light','Medium Light','Medium', 'Medium Dark', 'Dark'))+
+  labs(x = "Skin Type",
+       y = "Count",
+       caption = "Proportions of customer types per skin type",
+       tag = "Fig 5: "
+       )+
+  theme(
+        plot.caption.position = "plot",
+        plot.caption =element_text(hjust = 0.25, size= 13, margin = margin(t = 25)),
+        plot.tag.position = c(0.07, 0.025))
+customer_boxplot_emoji
+```
+```{r EmpiricalLogitPlotIncomeEmoji, echo=FALSE, warning=FALSE}
+
+#logit on the hhld_median_inc based on the emoji modifiers
+logit_income_emoji <- marketing_question_train %>%
+  group_by(emoji_modifier) %>%
+  mutate(income_emoji_cuts = cut(hhld_median_inc, breaks = 10))
+
+emplogit_income_emoji <- logit_income_emoji %>%
+  group_by(income_emoji_cuts, emoji_modifier) %>%
+  summarise(prop.new = mean(new_customer==1), 
+            n = n(),
+            midpoint = median(hhld_median_inc), .groups = "drop") %>%
+  mutate(prop.new = ifelse(prop.new==0, .01, prop.new),
+         emplogit = log(prop.new / (1 - prop.new)))
+
+ggplot(emplogit_income_emoji, aes(x = midpoint, y = emplogit, color = emoji_modifier)) +
+  geom_point(aes(shape = emoji_modifier)) +
+  geom_smooth( 
+              method = "lm", formula = "y~x") +
+  theme_minimal()+
+  labs(x = "Income",
+       y = "Empirical logits",
+       caption = "Emprirical Logit plot of Income seperated by Emoji_modifier",
+       tag = "Fig 7: "
+       )+
+  theme(
+        plot.caption.position = "plot",
+        plot.caption =element_text(hjust = 0.25, size= 13, margin = margin(t = 25)),
+        plot.tag.position = c(0.05, 0.025))+
+  scale_color_brewer(palette = "Dark2")
+```
+```{r EmpiricalLogitPlotIncomeSex, echo=FALSE, warning=FALSE}
+logit_income_sex <- marketing_question_train %>%
+  group_by(sex) %>%
+  mutate(income_sex_cuts = cut(hhld_median_inc, breaks = 10))
+
+emplogit_income_sex <- logit_income_sex %>%
+  group_by(income_sex_cuts, sex) %>%
+  summarise(prop.new = mean(new_customer==1), 
+            n = n(),
+            midpoint = median(hhld_median_inc), .groups = "drop") %>%
+  mutate(prop.new = ifelse(prop.new==0, .01, prop.new),
+         emplogit = log(prop.new / (1 - prop.new)))
+
+ggplot(emplogit_income_sex, aes(x = midpoint, y = emplogit, color = sex)) +
+  geom_point(aes(shape = sex)) +
+  geom_smooth(method = "lm", formula = "y~x") +
+  xlab("Income") + 
+  ylab("Empirical logits") +
+  theme_minimal() +
+  scale_color_brewer(palette = "Dark2")+
+  labs(x = "Income",
+       y = "Empirical logits",
+       caption = "Emprirical Logit plot of Income seperated by sex",
+       tag = "Fig 8: "
+       )+
+  theme(
+        plot.caption.position = "plot",
+        plot.caption =element_text(hjust = 0.25, size= 13, margin = margin(t = 25)),
+        plot.tag.position = c(0.06, 0.025))
+
+```
+
+```{r EmpiricalLogitPlotAge, echo=FALSE, warning=FALSE}
+logit_age <- marketing_question_train %>%
+  mutate(age_cuts = cut(age, breaks = 10))
+
+emplogit_age <- logit_age %>%
+  group_by(age_cuts) %>%
+  summarise(prop.new = mean(new_customer==1), 
+            n = n(),
+            midpoint = median(age), .groups = "drop") %>%
+  mutate(prop.new = ifelse(prop.new==0, .01, prop.new),
+         emplogit = log(prop.new / (1 - prop.new)))
+
+ggplot(emplogit_age, aes(x = midpoint, y = emplogit)) +
+  geom_point() +
+  geom_smooth(method = "lm", formula = "y~x")+
+  theme_minimal() +
+  labs(x = "Age",
+       y = "Empirical logits",
+       caption = "Emprirical Logit plot of Age",
+       tag = "Fig 9: "
+       )+
+  theme(
+        plot.caption.position = "plot",
+        plot.caption =element_text(hjust = 0.25, size= 13, margin = margin(t = 25)),
+        plot.tag.position = c(0.06, 0.025))
+```
+```{r EmpiricalLogitPlotIncome, echo=FALSE, warning=FALSE}
+logit_income <- marketing_question_train %>%
+  mutate(hhld_median_inc_cuts = cut(hhld_median_inc, breaks = 10))
+
+emplogit_income <- logit_income %>%
+  group_by(hhld_median_inc_cuts) %>%
+  summarise(prop.new = mean(new_customer==1), 
+            n = n(),
+            midpoint = median(age), .groups = "drop") %>%
+  mutate(prop.new = ifelse(prop.new==0, .01, prop.new),
+         emplogit = log(prop.new / (1 - prop.new)))
+
+ggplot(emplogit_income, aes(x = midpoint, y = emplogit)) +
+  geom_point() +
+  geom_smooth(method = "lm", formula = "y~x") +
+  theme_minimal()+
+  labs(x = "Income",
+       y = "Empirical logits",
+       caption = "Emprirical Logit plot of Income",
+       tag = "Fig 10: "
+       )+
+  theme(
+        plot.caption.position = "plot",
+        plot.caption =element_text(hjust = 0.25, size= 13, margin = margin(t = 25)),
+        plot.tag.position = c(0.06, 0.025))
+```
+
+
+
+
+EDA suggests that income, population and age should be relevant factors for our model. Furthermore, based on the nature of the data, we opted to use a generalised linear model under the binomial family. Our EDA seemed to be accurate, as initial models suggested that all three of the aforementioned factors play a significant role within the model. Sex was also correctly assumed to be insignificant, although we may note that there exists a slight relationship when looking at the combined effects of income and sex, but this was only relavent for one of the three sexes in our data. Furthermore, we discovered that the emoji used by customers (an indication of skin colour of our customers) has a significant role in regards to the model we have built so far. The interaction between income and skin colour was the most relevant, as we spotted a p-value supported trend of certain emojis (in conjunction with income) having a direct effect on the model. Tests against the emoji model versus non-emoji models indicated that the non-emoji model had a slightly smaller AIC score. Studies have shown that people of certain skin colours are known to have differences in income despite having no other discernible differences in attributes (Devaraj et. al, 2018), meaning that we may gain insight into customers that fall under this category with our current model. However, we chose to reject the emoji model in favour of our current model as the AIC indicated a better model, and p-values were significant for all variables (as opposed to not being the case for the emoji model). All other factors considered did not provide better explainability to our model, or increased accuracy. We also did not find a random effect to be needed in our model, since our sample size is large and we can be confident that we have captured every effect level needed.
+
+
+## Research question 2: sleep tracking quality based on skin colors
+
+```{r ModelFinding,echo=FALSE, include=FALSE}
+
+#glmer for random effects, random effect to account for variance would be location
+#glm for GLM
+model1 <- glm(new_customer ~ emoji_modifier*hhld_median_inc + hhld_median_inc  + Population + age, family = binomial, data=marketing_question_train)
+
+model2 <- glm(new_customer ~ emoji_modifier*hhld_median_inc + hhld_median_inc  + sex*hhld_median_inc + Population + age, family = binomial, data=marketing_question_train)
+lmtest::lrtest(model2, model1)
+#conclusion, high p-value supports the null hypothesis that the simpler model provides as good of a fit as the larger, so the interaction term between sex and hhld_median_income can be removed
+
+
+model3 <- glm(new_customer ~ hhld_median_inc + Population + age, family = binomial, data=marketing_question_train)
+
+lmtest::lrtest(model1, model3)
+
+#lower AIC in the simpler model coincides with the LRT conclusion, that with a p-value with 0.1421, that there is evidence that supports the null hypothesis (simpler model is as good of a fit as the larger mdoel),in the decision that the simpler model is more appropriate for the data 
+```
+
+```{r FinalModel, echo=FALSE}
+coefficients_names = c("Intercept", "hhld_median_inc", "Population", "age")
+estimates = c("1.589","-0.000021", "-0.0000000648", "0.00473")
+p_values = c("1.05*10^(-31)", "3.35*10^(-45)","3.95*10^(-3)", "8.43*10^(-5)")
+significance = c("***", "***","**", "***")
+table.data.frame = data.frame(coefficients_names, estimates, p_values, significance)
+colnames(table.data.frame) <- c("Coefficients","Estimate","P values","Significance Level")
+coefficients <- summary(model3)$coefficients
+aic <- round(model3$aic, 0)
+knitr::kable(table.data.frame, caption="Final Model Coefficients")
+```
+
+
+## Discussion
+Based on the model, age seems to be the biggest indicator of new customers. Similarly, we see that population plays an effect, with people in less population dense representing a part of  the new customer base. Similarly, older individuals also seem to encompass the newer customer base. Income also provides great insight, as we see that there is a negative trend between income and being a new customer. This leads to the conclusion that products on the cheaper end of the the spectrum, marketed towards older individuals in rural areas, are the most likely target marker for expanding the customer base. This also implies that new cheaper products from mingar are more likely to attract new customers, as well as customers outside of their usual high income customer base. In terms of specific products, the cheaper Active line of products seems to be the most conducive for attracting new customers.
+### Strengths and limitations
+Model 1: The interpretability of the model is a key strength that we decided to focus on: the limited number of variables and strong p-values give us numerical results that are easy to understand as well as visualise. In terms of difficulties with our model, customers that may be more privacy inclined may not be represented within the model, since we opted to focus our model on users that used specific emojis (thus indicating their skin colour). Customers that opted out of this feature for privacy reasons may not be accurately accounted for in the model. Customers could potentially use emojis that are not actually indicative of their own skin tone (for a variety of reasons). 
+
+\newpage
+# Consultant information
+## Consultant profiles
+
+**Sherry Xiaoman Lu**. Sherry is a Data Scientist at Data Analytics. She specializes in statistical modeling, project management, and business leadership. Sherry earned her Bachelor of Science, Specialist in Mathematics and its applications, with a focus in Probability and Statistics from the University of Toronto in 2023.
+
+**Rumteen Taheri Dolatabadi**. Rumteen is a Data Scientist in the technology sector with experience as an Actuary. He specializes in theoretical and mathematical probability. Rumteen earned his Bachelor of Science with a specializiation in Applied Mathematics and a concentration in Statistics and Probability from the University of Toronto in 2022. 
+
+**Antony Dudnikov. Antony is a Senior Data Analyst at Data Analytics. His specializations include statistical modeling, data wrangling and data visualizations. Antony received his Bachelor of Science, majoring in Statistics and Economics with a focus in Data Analytics, from the University of Toronto St.George in 2023.
+
+**Opal is a Data Scientist at Data Analytics. He specializes in mathematical probability and public policy. Opal earned his Bachelor of Science in Mathematics and Applications (Probability Theory) with a minor in Philosophy from the University of Toronto in 2023.
+
+
+## Code of ethical conduct
+
+We promote three fundamental tenets within our company:
+1.      Impartial and unbiased practice of statistical methods.
+All the work we do is free from personal influence and is ensured to have minimal conflict of interest.
+2.      Impartial and unbiased presentation of research.
+All the work we do is represented in a manner that reflects a neutral tone, while minimising the possibility for misinformation.
+3.      Lawful practice of statistical methods.
+All the work we do complies with federal and local laws, including matters regarding privacy and handling of sensitive data.
+
+\newpage
+# References
+
+
+\newpage
+# Appendix
+
+_These appendices should outline in more detail the steps taken to access the following datasets. They should NOT include code, but should briefly describe the steps and important considerations. I.e., show that you understand what needs to be considered when web scraping, protecting licensed data, etc._
+
+## Web scraping industry data on fitness tracker devices
+```{r}
+# webscraping
+url <- "https://fitnesstrackerinfohub.netlify.app"
+
+target <- bow(url,
+              user_agent = "sherryxiaoman.lu@mail.utoronto.ca for STA303/1002 final project",
+              force = TRUE)
+target
+
+html <- scrape(target)
+
+device_data <- html %>% 
+  html_elements("table") %>% 
+  html_table() %>% 
+  pluck(1)
+
+saveRDS(device_data, file = "data-raw/device_data.Rds")
+```
+
+## Accessing Census data on median household income
+```{r}
+options(cancensus.api_key = "CensusMapper_c35605992b233a54f504b09dcd8d5687",
+        cancensus.cache_path = "cache")
+
+regions <- list_census_regions(dataset = "CA16")
+
+regions_filtered <-  regions %>% 
+  filter(level == "CSD") %>% # CSD are Census Subdivision; it is a geographic level
+  as_census_region_list()
+
+census_data_csd <- get_census(dataset='CA16', regions = regions_filtered,
+                          vectors=c("v_CA16_2397"),
+                          level='CSD', geo_format = "sf")
+
+median_income <- census_data_csd %>% 
+  as_tibble() %>% 
+  select(CSDuid = GeoUID, contains("median"), Population) %>% 
+  mutate(CSDuid = parse_number(CSDuid)) %>% 
+  rename(hhld_median_inc = 2)
+
+saveRDS(median_income, file = "data-raw/median_income.Rds")
+```
+
+## Accessing postcode conversion files
+```{r}
+# load postal code data
+postcode = read_sav("data-raw/pccfNat_fccpNat_082021sav.sav", col_select = c(PC, CSDuid))
+view(postcode)
+# postcode has duplicating rows
+postcode = unique(postcode) # delete duplicating rows
+saveRDS(postcode, file = "data-raw/postcode.Rds")
+```
+
+## Process data for racial data modeling
+```{r}
+cust_sleep = readRDS("data-raw/cust_sleep.Rds")
+fullRds = readRDS("data-raw/full.Rds")
+
+# remove duplicates, otherwise it would affect the mean and variance for different groups
+fullRds <- fullRds[!duplicated(fullRds$cust_id),]
+full = inner_join(cust_sleep, fullRds)
+
+#glimpse(cust_sleep)
+#glimpse(fullRds)
+#glimpse(full)
+
+full <- full[!is.na(full$emoji_modifier),]
+full <- full %>%
+  mutate (skin_tone =  case_when(emoji_modifier == "U+1F3FB" ~ "light",
+                                 emoji_modifier == "U+1F3FC" ~ "medium-light",
+                                 emoji_modifier == "U+1F3FD" ~ "medium",
+                                 emoji_modifier == "U+1F3FE" ~ "medium-dark",
+                                 emoji_modifier == "U+1F3FF" ~ "dark",))
+full$skin_tone <- ordered(full$skin_tone, levels = c('light', 'medium-light', 'medium', 'medium-dark', 'dark'))
+full <- mutate(full, freq = flags/duration*60) # to account for sampling efforts, that the more someone uses a device, the more flags there might be, and get number of flags per hour <freq>
+
+saveRDS(full, file ="data-raw/racialfull.Rds")
+```
+
+## compile mean freq for each customer
+## remove observations where there is a significant relationship between freq and dates? But we shouldn't discount for dark race, the device malfunction faster. Analyze them separately? Change dates to days using the device
+```{r}
+who <- fullRds[duplicated(fullRds$postcode),] 
+who
+```
+There are no customers who live together, so the flag issues are not caused by physical proximity.
+
+## Assumptions Check
+1.Poisson Response The response variable is a count per unit of time or space, described by a Poisson distribution.
+2.Independence The observations must be independent of one another.
+3.Mean=Variance By definition, the mean of a Poisson random variable must be equal to its variance.
+4.Linearity The log of the mean rate, log(λ), must be a linear function of x
+
+## Exploratory Data Analysis
+```{r}
+full <- readRDS("data-raw/racialfull.Rds")
+mean(full$flags)
+var(full$flags)
+
+prop.table(table(full$skin_tone)) # balanced, so don't need to concern about the effect of inaccurate emoji due to default
+
+full  %>% group_by(skin_tone)  %>% 
+  summarise(mean=mean(flags), 
+            var=var(flags), n=n())
+
+
+mean(full$freq)
+var(full$freq)
+full  %>% group_by(skin_tone)  %>% 
+  summarise(mean=mean(freq), 
+            var=var(freq), n=n()) %>% 
+knitr::kable(
+      caption="Compare mean and variance of flag frequency within each skin color group.",
+      col.names = c("Skin Tone", "Mean", "Variance", "n"))
+```
+The table shows that the variance of flags is bigger than the mean for all skin tone groups, with increasing discrepancy as the skin tone darkens. It is an violation of the third assumption for Poisson distribution.
+For <freq>, the variance is always smaller than the mean.
+
+```{r}
+ggplot(full, aes(x=flags)) + 
+  geom_histogram() +
+  theme_minimal()
+```
+
+
+```{r}
+sumStats <- full %>% group_by(skin_tone) %>% 
+  summarise(mnflags = mean(flags),
+            logmnflags = log(mnflags), n=n())
+ggplot(sumStats, aes(x=skin_tone, y=logmnflags)) +
+  geom_point()+
+  geom_smooth(method = "loess", size = 1.5)+
+  xlab("Customer Skin Tone") +
+  ylab("Log of the empirical mean of flags") +
+  theme_minimal()
+```
+It shows a linear relationship between skin tone and log of frequency, so assumption 4 for the Poisson model is validated.
+```{r}
+ggplot(full, aes(x = skin_tone, y = freq)) +
+  geom_boxplot() +
+  ylab("Flags for one customer per hour") +
+  theme_minimal()
+```
+
+```{r}
+cors <- NULL
+for (i in 1:13){
+  cors <- c(cors, cor(train$latitude, train[, (i+1)]))
+}
+cdf <- data.frame("Correlation" = cors, "Predictors" = pred)
+cdf[order(-abs(cdf$Correlation)),] 
+```
+
+## Racial data modeling
+```{r}
+model1 <- glmmTMB(flags ~ skin_tone + (1|cust_id),family=nbinom1, offset= log(duration), data=full)
+# model1 <- glmer.nb(flags~skin_tone+(1|cust_id), offset = log(duration), data=full)
+
+summary(model1)
+
+ggplot(full, aes(x=skin_tone, fill = sex)) +
+geom_bar()
+```
+
+# Wald-type confidence interval 
+```{r}
+confint(model1)
+exp(confint(model1))
+```
+
+## null model and chi-square test
+```{r}
+modela <- glmmTMB(flags ~ 1,family=nbinom1, offset= log(duration), data=full)
+modelb <- glmmTMB(flags ~ skin_tone,family=nbinom1, offset= log(duration), data=full)
+summary(modelb)
+drop_skin <- anova(modela, modelb, test.statistic = "Chisq")
+drop_skin 
+```
+The p value shows that we should include <skin_tone> in the model
+
+```{r}
+drop_cust_id <- anova(modelb, model1, test.statistic = "Chisq")
+drop_cust_id
+```
+
+# show interaction term is not needed
+```{r}
+
+
+```
+# show additional terms are not needed
+
+# residual plots
+
+# goodness-of-fit test
+```{r}
+1-pchisq(model1$deviance, model1$df.residual)  
+```
