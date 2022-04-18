@@ -265,20 +265,13 @@ cdf[order(-abs(cdf$Correlation)),]
 
 ## Racial data modeling
 ```{r}
-#Fit the GLMM
-
-model1 <- glmer.nb(flags~skin_tone+(1|cust_id), offset = log(duration), data=full)
+model1 <- glmmTMB(flags ~ skin_tone + (1|cust_id),family=nbinom1, offset= log(duration), data=full)
+# model1 <- glmer.nb(flags~skin_tone+(1|cust_id), offset = log(duration), data=full)
 
 summary(model1)
-#exp(confint(model1))
 
 ggplot(full, aes(x=skin_tone, fill = sex)) +
 geom_bar()
-```
-## Detect any outliers
-```{r}
-
-
 ```
 
 # Wald-type confidence interval 
