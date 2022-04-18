@@ -105,21 +105,6 @@ saveRDS(mi_line, file = "data-raw/full.Rds")
 ```
 
 
-## separating duplicated customer IDs
-```{r}
-fullRds = readRDS("data-raw/full.Rds")
-dup1 <- fullRds[duplicated(fullRds$cust_id),]
-dup <- data.frame(matrix(
-  vector(), 0, 21, dimnames=list(c(), colnames(fullRds))),
-                stringsAsFactors=F)
-for (i in dup1$cust_id){
-  dup <- rbind(dup, fullRds[which(fullRds$cust_id == i),])
-}
-#view(dup)
-saveRDS(dup, file = "data/duplicates.Rds")
-```
-
-
 ## Data Preparation for Research Question 1
 ```{r}
 mi_line <- readRDS("data-raw/full.Rds")
