@@ -47,34 +47,31 @@ _This part of the report is much more comprehensive than the executive summary. 
 _Provide a brief introduction to your report and outline what the report will cover. This section is valuable for setting scope and expectations. _
 
 ### Research questions
-* What are the characteristics of the new customers using the "Active" and "Advanced" line?
-* How do the new customers differ from the traditional customers?
-* Do the customers using the "Active" and "Advanced" line come from a different income base compared to the traditional customers?
+* Do the customers using the "Active" and "Advanced" line come from a different income base compared to the traditional customers
 * Do the devices' sleep tracking feature perform worse for users with darker skin?
 
-## Informative title for section addressing a research question
+## Data Description and Preparation
 
-_For each research question, you will want to briefly describe any data manipulation, show some exploratory plots/summary tables, report on any methods you use (i.e. models you fit) and the conclusions you draw from these_
+There are three files sourced externally. The data on the wearable models released by Mingar, specifically with the line name paired with each model to indicate if it belongs to one of the new lines or the traditional line, is on the website https://fitnesstrackerinfohub.netlify.app/. It is scrapable with a 12-second crawl delay. This information is useful to answer the first research question, when classifying the devices.
 
-```{r}
-# This chunk provides an example of some things you can do with RMarkdown 
+The 2016 census data is the most current census data available. It is sourced through an API provided on https://censusmapper.ca/ and by using the R package Cancensus. The focus is the 58 census subdivisions, and their associated median household total income. 
 
-# read in the data (this will only work once you've set up the data!)
-device_data <- read_csv("data-raw/device.Rds")
+The Postal Code Conversion File with the reference date August 2021 is the latest conversion file available for the 2016 census. It matches postal codes with the geographical census subdivisions. We use the newest file because it is the most comprehensive with over 142 thousands more postal codes added, compared to the previous version. Some rows are repeating and some postal codes are associated with more than one census subdivision. This problem is solved by removing the duplicates. If the duplicates are present, it would affect the mean and variance values for different groups of customers and violate the independent observation assumptions for some models.
 
-# create a visualization
-device_data %>% 
-  ggplot(aes(x = ))
+There are four other files provided by Mingar. They include the customer information, customer ID matched to their device ID, device information associated with each device ID, and customer sleep tracking history. All the files, excluding sleep tracking history, are merged together into one dataset for ease of analysis. Specifically, the customer postal codes are matched with their associated census subdivisions through the Postal Code Conversion File, then matched to the median household total income at the specific census subdivisions. The other internal data files are joined together either by the customer ID or device ID. 
 
-```
+Some changes are made to the variables. We create three additional variables: age, skin tone, and a boolean variable identifying whether a customer is new versus traditional. The age is calculated from customers' date of birth, referencing against April.7, 2022, and the skin tone is identified based on the emoji type the customers use. We categorize five types of skin tones: light, medium light, medium, medium dark, and dark. The customers who don't have emojis are removed from the dataset used in answering the second research question, because we are not able to identify their race based on the emojis for the analysis. The customers using devices from the Advanced or Active line are the new customers; the ones using devices from the Run line are the traditional customers. The new customers are given a value of one, while the traditional customers are assigned a value of zero, for the identifier variable.
 
-## Informative title for section addressing a research question
+## Research Question 1: marketing analysis on new and traditional customer
+EDA suggests that income, population and age should be relevant factors for our model. Furthermore, based on the nature of the data, we opted to use a generalised linear model under the binomial family. Our EDA seemed to be accurate, as initial models suggested that all three of the aforementioned factors play a significant role within the model. Sex was also correctly assumed to be insignificant, although we may note that there exists a slight relationship when looking at the combined effects of income and sex, but this was only relavent for one of the three sexes in our data. Furthermore, we discovered that the emoji used by customers (an indication of skin colour of our customers) has a significant role in regards to the model we have built so far. The interaction between income and skin colour was the most relevant, as we spotted a p-value supported trend of certain emojis (in conjunction with income) having a direct effect on the model. Tests against the emoji model versus non-emoji models indicated that the non-emoji model had a slightly smaller AIC score. However, we chose to accept this model regardless of the AIC due to the interpretability of the model. Furthermore, studies have shown that people of certain skin colours are known to have differences in income despite having no other discernible differences in attributes (Devaraj et. al, 2018), meaning that we may gain insight into customers that fall under this category with our current model. All other factors considered did not provide better explainability to our model, or increased accuracy. We also did not find a random effect to be needed in our model, since our sample size is large and we can be confident that we have captured every effect level needed.
+
+
+## Research question 2: sleep tracking quality based on skin colors
+
 
 
 ## Discussion
-
-_In this section you will summarize your findings across all the research questions and discuss the strengths and limitations of your work. It doesn't have to be long, but keep in mind that often people will just skim the intro and the discussion of a document like this, so make sure it is useful as a semi-standalone section (doesn't have to be completely standalone like the executive summary)._
-
+Based on the first model, income seems to be the biggest indicator of new customers. Different skin colours have different odds of being a new customer based on income, but with income as a sole fixed effect, we see a very significant trend that supports this conclusion. Similarly, we see that population plays an effect, with people in larger cities representing a part of  the new customer base. Similarly, older individuals also seem to encompass the newer customer base. This leads to the conclusion that products on the cheaper end of the the spectrum, marketed towards older individuals in dense areas, are the most likely target marker for expanding the customer base. This also implies that new cheaper products from mingar are more likely to attract new customers, as well as customers outside of their usual high income customer base. 
 ### Strengths and limitations
 
 \newpage
@@ -87,22 +84,21 @@ _In this section you will summarize your findings across all the research questi
 
 **Rumteen Taheri Dolatabadi**. Rumteen is a Data Scientist in the technology sector with experience as an Actuary. He specializes in theoretical and mathematical probability. Rumteen earned his Bachelor of Science with a specializiation in Applied Mathematics and a concentration in Statistics and Probability from the University of Toronto in 2022. 
 
-**Statsy McStatsstats**. Statsy is a senior consultant with Eminence Analytics. She specializes in data visualization. Statsy earned her Bachelor of Science, Specialist in Statistics Methods and Practice, from the University of Toronto in 2023.
 
-**Datana Scatterplot**. Datana is a junior consultant with Eminence Analytics. They specialize in reproducible analysis and statistical communication. Datana earned their Bachelor of Science, Majoring in Computer Science and Statistics from the University of Toronto in 2024.
 
 ## Code of ethical conduct
 
-_This section should be fairly short, no more than half a page. Assume a general audience, much like your executive summary._
-
-* _Make at least three relevant statements about your company's approach to ethical statistical consulting. These should be appropriately in line with professional conduct advice like the (Statistical Society of Canada Code of Conduct)[https://ssc.ca/sites/default/files/data/Members/public/Accreditation/ethics_e.pdf] or the (Ethical Guidelines for Statistical Practice from the American Statistical Society)[https://www.amstat.org/ASA/Your-Career/Ethical-Guidelines-for-Statistical-Practice.aspx]. For example, "the customer is always right" ISN'T the type of thing an ethical statistical consultant would include._
-*	_Be very careful not to just copy and paste from these other documents! Put things in your own words._
-
+We promote three fundamental tenets within our company:
+1.      Impartial and unbiased practice of statistical methods.
+All the work we do is free from personal influence and is ensured to have minimal conflict of interest.
+2.      Impartial and unbiased presentation of research.
+All the work we do is represented in a manner that reflects a neutral tone, while minimising the possibility for misinformation.
+3.      Lawful practice of statistical methods.
+All the work we do complies with federal and local laws, including matters regarding privacy and handling of sensitive data.
 
 \newpage
 # References
 
-_You don't need to cite course materials, but consider all the the places you got data from, as well as the packages used and R itself. These are all things you should consider citing. Likewise, you might use some external resources on the emoji skin tones/Fitzpatrick scale, etc._
 
 \newpage
 # Appendix
