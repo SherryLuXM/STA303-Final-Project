@@ -23,7 +23,7 @@ library(rvest)
 library(haven)
 library(cancensus)
 library(lme4)
-# library(glmmTMB)
+library(glmmTMB)
 ```
 \newpage
 
@@ -52,13 +52,7 @@ _Provide a brief introduction to your report and outline what the report will co
 
 ## Data Description and Preparation
 
-There are three files sourced externally. The data on the wearable models released by Mingar, specifically with the line name paired with each model to indicate if it belongs to one of the new lines or the traditional line, is on the website https://fitnesstrackerinfohub.netlify.app/. It is scrapable with a 12-second crawl delay. This information is useful to answer the first research question, when classifying the devices.
-
-The 2016 census data is the most current census data available. It is sourced through an API provided on https://censusmapper.ca/ and by using the R package Cancensus. The focus is the 58 census subdivisions, and their associated median household total income. 
-
-The Postal Code Conversion File with the reference date August 2021 is the latest conversion file available for the 2016 census. It matches postal codes with the geographical census subdivisions. We use the newest file because it is the most comprehensive with over 142 thousands more postal codes added, compared to the previous version. Some rows are repeating and some postal codes are associated with more than one census subdivision. This problem is solved by removing the duplicates. If the duplicates are present, it would affect the mean and variance values for different groups of customers and violate the independent observation assumptions for some models.
-
-There are four other files provided by Mingar. They include the customer information, customer ID matched to their device ID, device information associated with each device ID, and customer sleep tracking history. All the files, excluding sleep tracking history, are merged together into one dataset for ease of analysis. Specifically, the customer postal codes are matched with their associated census subdivisions through the Postal Code Conversion File, then matched to the median household total income at the specific census subdivisions. The other internal data files are joined together either by the customer ID or device ID. 
+There are three files sourced externally. There are four other files provided by Mingar. They include the customer information, customer ID matched to their device ID, device information associated with each device ID, and customer sleep tracking history. All the files, excluding sleep tracking history, are merged together into one dataset for ease of analysis. Specifically, the customer postal codes are matched with their associated census subdivisions through the Postal Code Conversion File, then matched to the median household total income at the specific census subdivisions. The other internal data files are joined together either by the customer ID or device ID. 
 
 Some changes are made to the variables. We create three additional variables: age, skin tone, and a boolean variable identifying whether a customer is new versus traditional. The age is calculated from customers' date of birth, referencing against April.7, 2022, and the skin tone is identified based on the emoji type the customers use. We categorize five types of skin tones: light, medium light, medium, medium dark, and dark. The customers who don't have emojis are removed from the dataset used in answering the second research question, because we are not able to identify their race based on the emojis for the analysis. The customers using devices from the Advanced or Active line are the new customers; the ones using devices from the Run line are the traditional customers. The new customers are given a value of one, while the traditional customers are assigned a value of zero, for the identifier variable.
 
@@ -361,59 +355,10 @@ All the work we do complies with federal and local laws, including matters regar
 \newpage
 # Appendix
 
-_These appendices should outline in more detail the steps taken to access the following datasets. They should NOT include code, but should briefly describe the steps and important considerations. I.e., show that you understand what needs to be considered when web scraping, protecting licensed data, etc._
+There are three files sourced externally. The data on the wearable models released by Mingar, specifically with the line name paired with each model to indicate if it belongs to one of the new lines or the traditional line, is on the website https://fitnesstrackerinfohub.netlify.app/. It is scrapable with a 12-second crawl delay. This information is useful to answer the first research question, when classifying the devices.
 
-## Web scraping industry data on fitness tracker devices
-```{r}
-# webscraping
-url <- "https://fitnesstrackerinfohub.netlify.app"
+The 2016 census data is the most current census data available. It is sourced through an API provided on https://censusmapper.ca/ and by using the R package Cancensus. The focus is the 58 census subdivisions, and their associated median household total income. 
 
-target <- bow(url,
-              user_agent = "sherryxiaoman.lu@mail.utoronto.ca for STA303/1002 final project",
-              force = TRUE)
-target
+The Postal Code Conversion File with the reference date August 2021 is the latest conversion file available for the 2016 census. It matches postal codes with the geographical census subdivisions. We use the newest file because it is the most comprehensive with over 142 thousands more postal codes added, compared to the previous version. Some rows are repeating and some postal codes are associated with more than one census subdivision. This problem is solved by removing the duplicates. If the duplicates are present, it would affect the mean and variance values for different groups of customers and violate the independent observation assumptions for some models.
 
-html <- scrape(target)
-
-device_data <- html %>% 
-  html_elements("table") %>% 
-  html_table() %>% 
-  pluck(1)
-
-saveRDS(device_data, file = "data-raw/device_data.Rds")
-```
-
-## Accessing Census data on median household income
-```{r}
-options(cancensus.api_key = "CensusMapper_c35605992b233a54f504b09dcd8d5687",
-        cancensus.cache_path = "cache")
-
-regions <- list_census_regions(dataset = "CA16")
-
-regions_filtered <-  regions %>% 
-  filter(level == "CSD") %>% # CSD are Census Subdivision; it is a geographic level
-  as_census_region_list()
-
-census_data_csd <- get_census(dataset='CA16', regions = regions_filtered,
-                          vectors=c("v_CA16_2397"),
-                          level='CSD', geo_format = "sf")
-
-median_income <- census_data_csd %>% 
-  as_tibble() %>% 
-  select(CSDuid = GeoUID, contains("median"), Population) %>% 
-  mutate(CSDuid = parse_number(CSDuid)) %>% 
-  rename(hhld_median_inc = 2)
-
-saveRDS(median_income, file = "data-raw/median_income.Rds")
-```
-
-## Accessing postcode conversion files
-```{r}
-# load postal code data
-postcode = read_sav("data-raw/pccfNat_fccpNat_082021sav.sav", col_select = c(PC, CSDuid))
-view(postcode)
-# postcode has duplicating rows
-postcode = unique(postcode) # delete duplicating rows
-saveRDS(postcode, file = "data-raw/postcode.Rds")
-```
 
