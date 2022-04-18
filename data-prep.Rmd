@@ -45,7 +45,7 @@ device_data <- html %>%
 saveRDS(device_data, file = "data-raw/device_data.Rds")
 ```
 
-## Census API
+# Census API
 
 ```{r}
 ## Simplify to only needed variables
@@ -70,8 +70,18 @@ median_income <- census_data_csd %>%
 
 saveRDS(median_income, file = "data-raw/median_income.Rds")
 ```
+## Accessing postcode conversion files
+```{r}
+# load postal code data
+postcode = read_sav("data-raw/pccfNat_fccpNat_082021sav.sav", col_select = c(PC, CSDuid))
+view(postcode)
+# postcode has duplicating rows
+postcode = unique(postcode) # delete duplicating rows
+saveRDS(postcode, file = "data-raw/postcode.Rds")
+```
 
-## Data Merge
+# Further Data Manipulation
+## merging data
 ```{r}
 postcode <- readRDS("data-raw/postcode.Rds")
 median_income <- readRDS("data-raw/median_income.Rds")
@@ -90,11 +100,12 @@ head(mi_line)
 colnames(device_data)[1] <- "device_name" 
 mi_line <- left_join(mi_line, device_data, by = "device_name")
 head(mi_line)
-mi_line <- subset(mi_line, select = -c(dob, postcode, line, CSDuid)) # dropping unneeded columns
+mi_line <- subset(mi_line, select = -c(dob, line, CSDuid))
 saveRDS(mi_line, file = "data-raw/full.Rds")
 ```
 
-## dealing with duplicated customer IDs
+
+## separating duplicated customer IDs
 ```{r}
 fullRds = readRDS("data-raw/full.Rds")
 dup1 <- fullRds[duplicated(fullRds$cust_id),]
@@ -108,6 +119,38 @@ for (i in dup1$cust_id){
 saveRDS(dup, file = "data/duplicates.Rds")
 ```
 
+
+## Data Preparation for Research Question 1
+```{r}
+mi_line <- readRDS("data-raw/full.Rds")
+# remove duplicates, otherwise it would affect the mean and variance for different groups
+mi_line <- mi_line[!duplicated(mi_line$cust_id),]
+# split the dataset randomly
+set.seed(2022303) # set seed to ensure that we get reproducible dataset
+sample_size <- floor(0.7*nrow(mi_line))
+picked <- sample(seq_len(nrow(mi_line)),size = sample_size)
+train <- mi_line[picked,]
+test <- mi_line[-picked,]
+marketing_question_train <- train %>%
+  mutate(new_customer = if_else((Line == "Advance" | Line == "Active"), 1, 0)) %>%
+  select(c(sex, emoji_modifier, hhld_median_inc, 
+           Population, 'Recommended retail price', age, new_customer)) %>%
+  drop_na(emoji_modifier) %>% #drop all NA values for emoji_modifier
+  drop_na(sex)  #drop all NA values for sex
+
+marketing_question_test <- test %>%
+  mutate(new_customer = if_else((Line == "Advance" | Line == "Active"), 1, 0)) %>%
+  select(c(sex, emoji_modifier, hhld_median_inc, 
+           Population, 'Recommended retail price', age, new_customer)) %>%
+  drop_na(emoji_modifier) %>% #drop all NA values for emoji_modifier
+  drop_na(sex)  #drop all NA values for sex
+
+marketing_question_test$age <- round(marketing_question_test$age, 0)
+marketing_question_train$age <- round(marketing_question_train$age, 0)
+
+saveRDS(marketing_question_train, file = "data/marketing_question_train.Rds")
+saveRDS(marketing_question_test, file = "data/marketing_question_test.Rds")
+```
 
 ## Process data for Research Question 2, racial data modeling
 ```{r}
@@ -133,11 +176,9 @@ full$skin_tone <- ordered(full$skin_tone, levels = c('light', 'medium-light', 'm
 full <- mutate(full, freq = flags/duration*60) # to account for sampling efforts, that the more someone uses a device, the more flags there might be, and get number of flags per hour <freq>
 selected <- c(1:6, 12:14, 27,28)
 full <- full[,selected]
-saveRDS(full, file ="data-raw/racialfull.Rds")
-```
 
-## Split the dataset for racial dataset
-```{r}
+################################################################################
+# Split the dataset for racial dataset #
 mi_line <- readRDS("data-raw/racialfull.Rds")
 # remove duplicates, otherwise it would affect the mean and variance for different groups
 mi_line <- mi_line[!duplicated(mi_line$cust_id),]
