@@ -350,7 +350,15 @@ All the work we do complies with federal and local laws, including matters regar
 
 \newpage
 # References
+Devaraj, S., Quigley N, Patel P. The effects of skin tone, height, and gender on earnings. 2018. 
+https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0190640
 
+https://academic.oup.com/sleep/article/43/10/zsaa159/5902283
+
+
+Hailu   R. Fitbits and other wearables may not accurately track heart rates in people of color. 2019. https://www.statnews.com/2019/07/24/fitbit-accuracy-dark-skin/. Accessed Apr 18, 2022.
+
+Bent   B, et al.   Investigating sources of inaccuracy in wearable optical heart rate sensors. NPJ Digit Med.  2022;03:18.
 
 \newpage
 # Appendix
