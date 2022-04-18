@@ -16,14 +16,16 @@ titlepage-rule-color: "FFFFFF"
 titlepage-rule-height: 2
 ---
 
-```{r setup, message=FALSE}
+```{r setup, include=FALSE}
 library(tidyverse)
 library(polite)
 library(rvest)
 library(haven)
 library(cancensus)
 library(lme4)
-# library(glmmTMB)
+library(glmmTMB)
+library(TMB)
+library(ggplot2)
 ```
 \newpage
 
@@ -60,13 +62,46 @@ The Postal Code Conversion File with the reference date August 2021 is the lates
 
 There are four other files provided by Mingar. They include the customer information, customer ID matched to their device ID, device information associated with each device ID, and customer sleep tracking history. All the files, excluding sleep tracking history, are merged together into one dataset for ease of analysis. Specifically, the customer postal codes are matched with their associated census subdivisions through the Postal Code Conversion File, then matched to the median household total income at the specific census subdivisions. The other internal data files are joined together either by the customer ID or device ID. 
 
-Some changes are made to the variables. We create three additional variables: age, skin tone, and a boolean variable identifying whether a customer is new versus traditional. The age is calculated from customers' date of birth, referencing against April.7, 2022, and the skin tone is identified based on the emoji type the customers use. We categorize five types of skin tones: light, medium light, medium, medium dark, and dark. The customers who don't have emojis are removed from the dataset used in answering the second research question, because we are not able to identify their race based on the emojis for the analysis. The customers using devices from the Advanced or Active line are the new customers; the ones using devices from the Run line are the traditional customers. The new customers are given a value of one, while the traditional customers are assigned a value of zero, for the identifier variable.
+Some changes are made to the variables. We create four additional variables: age, skin tone, frequency of flags per hour, and a boolean variable identifying whether a customer is new versus traditional. The age is calculated from customers' date of birth, referencing against April.7, 2022, and the skin tone is identified based on the emoji type the customers use. We categorize five types of skin tones: light, medium light, medium, medium dark, and dark. The customers who don't have emojis are removed from the dataset used in answering the second research question, because we are not able to identify their race based on the emojis for the analysis. The frequency of flags per hour is calculated by dividing the number of flags per session by the duration of the session, times 60, to get the number of flags per hour for the sleep session. 
+
+The customers using devices from the Advanced or Active line are the new customers; the ones using devices from the Run line are the traditional customers. The new customers are given a value of one, while the traditional customers are assigned a value of zero, for the identifier variable.
 
 ## Research Question 1: marketing analysis on new and traditional customer
-EDA suggests that income, population and age should be relevant factors for our model. Furthermore, based on the nature of the data, we opted to use a generalised linear model under the binomial family. Our EDA seemed to be accurate, as initial models suggested that all three of the aforementioned factors play a significant role within the model. Sex was also correctly assumed to be insignificant, although we may note that there exists a slight relationship when looking at the combined effects of income and sex, but this was only relavent for one of the three sexes in our data. Furthermore, we discovered that the emoji used by customers (an indication of skin colour of our customers) has a significant role in regards to the model we have built so far. The interaction between income and skin colour was the most relevant, as we spotted a p-value supported trend of certain emojis (in conjunction with income) having a direct effect on the model. Tests against the emoji model versus non-emoji models indicated that the non-emoji model had a slightly smaller AIC score. Studies have shown that people of certain skin colours are known to have differences in income despite having no other discernible differences in attributes (Devaraj et. al, 2018), meaning that we may gain insight into customers that fall under this category with our current model. However, we chose to reject the emoji model in favour of our current model as the AIC indicated a better model, and p-values were significant for all variables (as opposed to not being the case for the emoji model). All other factors considered did not provide better explainability to our model, or increased accuracy. We also did not find a random effect to be needed in our model, since our sample size is large and we can be confident that we have captured every effect level needed.
+EDA suggests that income, population and age should be relevant factors for our model. Furthermore, based on the nature of the data, we opted to use a generalised linear model under the binomial family. Our EDA seemed to be accurate, as initial models suggested that all three of the aforementioned factors play a significant role within the model. Sex was also correctly assumed to be insignificant, although we may note that there exists a slight relationship when looking at the combined effects of income and sex, but this was only relavent for one of the three sexes in our data. Furthermore, we discovered that the emoji used by customers (an indication of skin colour of our customers) has a significant role in regards to the model we have built so far. The interaction between income and skin colour was the most relevant, as we spotted a p-value supported trend of certain emojis (in conjunction with income) having a direct effect on the model. Tests against the emoji model versus non-emoji models indicated that the non-emoji model had a slightly smaller AIC score. However, we chose to accept this model regardless of the AIC due to the interpretability of the model. Furthermore, studies have shown that people of certain skin colours are known to have differences in income despite having no other discernible differences in attributes (Devaraj et. al, 2018), meaning that we may gain insight into customers that fall under this category with our current model. All other factors considered did not provide better explainability to our model, or increased accuracy. We also did not find a random effect to be needed in our model, since our sample size is large and we can be confident that we have captured every effect level needed.
 
 
 ## Research question 2: sleep tracking quality based on skin colors
+The response being modeled is the number of flags. Because it is counts per session, Poisson distribution is the primary option. The number of flags depend on the duration of the sleep session -- a longer session will result in more flags than a shorter session. Therefore, logarithm of the duration is applied as an offset in the model. The observations are grouped based on the customer ID, so even though the customers are independent, the observations are not independent from each other. Therefore, a generalized linear mixed model, with the customer ID as a random effect, and Poisson distribution for the response, is appropriate for this research question.
+After removing the observations with no emojis and thus no skin tone information, the remaining dataset is plotted. Figure 1 shows that the customers' racial backgrounds are evenly distributed, for customers who have data on their emoji choices. Therefore, any bias caused by customers unwilling to represent their actual skin tones when choosing emojis is minimal. This shows that the dataset is not affected by this potential bias.
+
+```{r, fig.height=5, fig.cap="Figure 1: Proportion of Skin Tone in Customers", include = FALSE}
+train <- readRDS("data/racial_train.Rds")
+prop.table(table(train$skin_tone))
+pr <- data.frame(skin_tone = c('light', 'medium light', 'medium', 'medium dark', 'dark'),
+           proportion = c(0.2426036, 0.2011834, 0.2011834, 0.1794872, 0.1755424))
+pie<- ggplot(pr, aes(x="", y=proportion, fill=skin_tone))+
+  geom_bar(width = 1, stat = "identity") +  coord_polar("y", start=0) + 
+  xlab("Skin tone")
+pie
+```
+There are four assumptions for Poisson distribution. 
+1.Poisson Response The response variable is a count per unit of time or space, described by a Poisson distribution.
+2.Independence The observations must be independent of one another.
+3.Mean=Variance By definition, the mean of a Poisson random variable must be equal to its variance.
+4.Linearity The log of the mean rate, log(λ), must be a linear function of x
+If any of the assumptions are not satisfied, it will interfere with getting accurate analytic result from the model and the best fit. The histogram of the flag counts show reducing bin heights, indicating that the response is indeed described by a Poisson distribution. Therefore the first assumption is satisfied. The observations have been checked to remove any duplicates. Also, there are no two customers living at the same address, so the sleep tracking quality of individual customer is not highly correlated because of physical proximity. We can assume that the second observation is satisfied. 
+The mean and variance of the number of flags for different groups of skin tone are not equal. The difference between the two increases for the groups with darker skin tones. For example, for the group with dark skin tone, the variance is 16.09, and the mean is 11.79. The mean and variance of the frequency for different groups of skin tone are not equal either. The variances are always smaller than the mean, and the difference increases for groups with dark skin tone. For the group with dark skin tone, the variance of the frequency is 0.4, while the mean is 2. To handle dispersion problem, we can either use quasipossion distribution or negative binomial distribution instead of poisson distribution. 
+Figure 4 shows that the log of the mean rate is a linear function of x. 
+ 
+```{r, fig.height=5, fig.cap="Figure 2: Flags Boxplot for Skin Tone", include = FALSE}
+ggplot(train, aes(x = skin_tone, y = flags, color = skin_tone)) +
+  geom_boxplot() +
+  geom_jitter(width=0.15) +
+  ylab("Flags for one customer per session") +
+  xlab("Skin tone") +
+  theme_minimal()
+```
+We fit a negative binomial model, with flags as the response, and skin tone, age, sex, and model released date as the predictors, as discussed, and include logarithm of the duration as an offset. The individual significance test indicates that skin tone, sex, and model released date are significant. Next, different nested model combinations are tested by pairs via the Chi-square test. Our final model includes skin tone, sex, and model released date as fixed term predictors. No interaction term is included in the model. The AIC and BIC values for this model is 2098.1 and 2136.1, which are the lowest among the model options. Unfortunately, the value for the Goodness-of-Fit test is 0. Outliers in the model can be a significant cause, and they do exist as seen in Figure 1. With the sleep tracking function, it is likely that once the feature malfunctions for a device, it would produce a high number of flags, as well as if it doesn't track sleep as well for people with darker skin tone compared to people with light skin tone.
 
 
 
