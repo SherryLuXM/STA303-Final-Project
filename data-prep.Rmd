@@ -103,6 +103,34 @@ head(mi_line)
 mi_line <- subset(mi_line, select = -c(dob, postcode, line, CSDuid))
 saveRDS(mi_line, file = "data-raw/full.Rds")
 ```
+## Split the dataset
+```{r}
+mi_line <- readRDS("data-raw/full.Rds")
+# remove duplicates, otherwise it would affect the mean and variance for different groups
+mi_line <- mi_line[!duplicated(mi_line$cust_id),]
+# split the dataset randomly
+set.seed(2022303)
+sample_size <- floor(0.7*nrow(mi_line))
+picked <- sample(seq_len(nrow(mi_line)),size = sample_size)
+train <- mi_line[picked,]
+test <- mi_line[-picked,]
+saveRDS(train, file = "data-raw/train.Rds")
+saveRDS(test, file = "data-raw/test.Rds")
+```
+
+## dealing with duplicated customer IDs
+```{r}
+fullRds = readRDS("data-raw/full.Rds")
+dup1 <- fullRds[duplicated(fullRds$cust_id),]
+dup <- data.frame(matrix(
+  vector(), 0, 21, dimnames=list(c(), colnames(fullRds))),
+                stringsAsFactors=F)
+for (i in dup1$cust_id){
+  dup <- rbind(dup, fullRds[which(fullRds$cust_id == i),])
+}
+#view(dup)
+saveRDS(dup, file = "data/duplicates.Rds")
+```
 
 ## Data Preparation for Research Question 1
 ```{r}
