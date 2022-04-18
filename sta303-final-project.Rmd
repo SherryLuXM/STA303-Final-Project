@@ -20,32 +20,54 @@ titlepage-rule-color: FFFFFF
 titlepage-rule-height: 2
 ---
 
-```{r setup, echo=FALSE}
+```{r setup, echo=FALSE, message = FALSE}
 library(tidyverse)
 library(polite)
 library(rvest)
 library(haven)
 library(cancensus)
 library(lme4)
+library(glmmTMB)
+library(TMB)
 library(tinytex)
 ```
 \newpage
 
 # Executive Summary
 
-Results for the differences between new customers and old customers show that age, income and population have effects on the chances of attracting new customers, as well as indicate that the new Active line of products are more attractive to this category.
+Results for the differences between new customers and old customers show that age, income and population have effects on the chances of attracting new customers, as well as indicate that the new Active line of products are more attractive to this category, as seen in Figure 1.
 
 Current scientific literature suggests that wearable devices and their various tracking methods (heart rate, sleep-tracking, etc.) may not be as accurate for those with darker skin tones due to physiological factors and perhaps negligence of inclusive design. In addition, wearable devices thus far have been typically targeted towards, and consumed by a wealthier customer base who can afford these expensive products. The current study aims to update these socioeconomic and racial findings specific to Mingar’s products. It will consider the effects of customer skin tone (using the customers preferred emoji colour) and how error-prone their wearable is. The analysis also intends to explore characteristic trends (e.g. age,  household income, etc.) among Mingar’s new customer base who purchase from newer, more affordable product lines and its traditional customer base. 
 
+```{r dataInput, echo=FALSE, message = FALSE}
+marketing_question_test <- readRDS("data/marketing_question_test.Rds")
+marketing_question_train <- readRDS("data/marketing_question_train.Rds")
+full <- rbind(marketing_question_test, marketing_question_train)
 
-##Key findings
+customerbase_distribution_income_sex_bar <- full %>%
+  ggplot(aes(x=hhld_median_inc)) +
+  geom_histogram(aes(y = ..density.., fill = as.factor(new_customer)),colour = "black") +
+  scale_x_continuous(lim = c(0,150000)) +
+  labs(x = "Median Income",
+       y = "Density",
+       caption = "Distribution of Median Income based on customer types",
+       tag = "Fig 1: "
+       )+
+  scale_fill_discrete(name = "Customer Type", labels = c("Old Customer", "New Customer")) +
+    theme(plot.caption.position = "plot",
+        plot.caption =element_text(hjust = 0.25, size= 13, margin = margin(t = 25)),
+        plot.tag.position = c(0.06, 0.025))
+customerbase_distribution_income_sex_bar
+```
+
+## Key findings
 
 +  New customers tend to be older with a 0.44% times increase in purchasing odds for every increase in age yearly 
 + New customers tend to be located in less densely populated areas with a 0.000006%  times reduction in odds per population unit increase 
 + New customers tend to be lower in income with a 0.02% reduction in purchasing odds per unit of income increase
 + 24% of the study sample population uses the lightest emoji and 18% uses the darkest emoji
 
-##Limitations
+## Limitations
 + Emoji colour may not be indicative of actual customer race, and neglects customers who choose to use default colored emojis
 
 \newpage
@@ -73,13 +95,8 @@ Some changes are made to the variables. We create three additional variables: ag
 
 ## Research Question 1: marketing analysis on new and traditional customer
 
-```{r dataInput, echo=FALSE}
-marketing_question_test <- readRDS("data/marketing_question_test.Rds")
-marketing_question_train <- readRDS("data/marketing_question_train.Rds")
-full <- rbind(marketing_question_test, marketing_question_train)
-```
 
-```{r customerDistributionBasedOnSex, echo=FALSE}
+```{r customerDistributionBasedOnSex, echo=FALSE, message = FALSE}
 new_customer_distribution_sex <- full %>%
   ggplot(aes(as.factor(new_customer))) +
   geom_bar(aes(fill = sex), width= 0.5) +
@@ -94,14 +111,15 @@ new_customer_distribution_sex <- full %>%
   labs(x = "Customer Base",
        y = "Count",
        caption = "Count Distribution based on customer base and sex",
-       tag = "Fig 1: "
+       tag = "Fig 2: "
        ) +
   theme(plot.caption.position = "plot",
         plot.caption =element_text(hjust = 0.25, size= 13, margin = margin(t = 25)),
         plot.tag.position = c(0.05, 0.025))
 new_customer_distribution_sex
 ```
-```{r distributionIncomeOnCustomerBase, echo=FALSE, warning=FALSE}
+
+```{r distributionIncomeOnCustomerBase, echo=FALSE, warning=FALSE, message = FALSE}
 facet_label_names <- c("0" = "Old Customer",
                        "1" = "New Customer")
 customerbase_distribution_income <- full %>%
@@ -121,7 +139,7 @@ customerbase_distribution_income <- full %>%
 customerbase_distribution_income
 ```
 
-```{r PoopulationDistributionBasedOnCustomerBase, echo=FALSE, warning=FALSE}
+```{r PoopulationDistributionBasedOnCustomerBase, echo=FALSE, warning=FALSE, message = FALSE}
 customerbase_distribution_population1 <- full %>%
   ggplot(aes(x=Population)) +
   geom_histogram(aes(y = ..density.., fill = as.factor(new_customer)),colour = "black") +
@@ -150,7 +168,7 @@ customerbase_distribution_population2 <- full %>%
 customerbase_distribution_population2
 ```
 
-```{r DistributionOfEmojiModifierBasedOnCustomerType, echo=FALSE}
+```{r DistributionOfEmojiModifierBasedOnCustomerType, echo=FALSE, message = FALSE}
 customer_boxplot_emoji <- full %>%
   ggplot(aes(x = as.factor(emoji_modifier)))+
   geom_bar(aes(fill = as.factor(new_customer)), colour = "black")+
@@ -177,7 +195,8 @@ customer_boxplot_emoji <- full %>%
         plot.tag.position = c(0.07, 0.025))
 customer_boxplot_emoji
 ```
-```{r EmpiricalLogitPlotIncomeEmoji, echo=FALSE, warning=FALSE}
+
+```{r EmpiricalLogitPlotIncomeEmoji, echo=FALSE, warning=FALSE, message = FALSE}
 
 #logit on the hhld_median_inc based on the emoji modifiers
 logit_income_emoji <- marketing_question_train %>%
@@ -200,7 +219,7 @@ ggplot(emplogit_income_emoji, aes(x = midpoint, y = emplogit, color = emoji_modi
   labs(x = "Income",
        y = "Empirical logits",
        caption = "Emprirical Logit plot of Income seperated by Emoji_modifier",
-       tag = "Fig 7: "
+       tag = "Fig 6: "
        )+
   theme(
         plot.caption.position = "plot",
@@ -208,7 +227,7 @@ ggplot(emplogit_income_emoji, aes(x = midpoint, y = emplogit, color = emoji_modi
         plot.tag.position = c(0.05, 0.025))+
   scale_color_brewer(palette = "Dark2")
 ```
-```{r EmpiricalLogitPlotIncomeSex, echo=FALSE, warning=FALSE}
+```{r EmpiricalLogitPlotIncomeSex, echo=FALSE, warning=FALSE, message = FALSE}
 logit_income_sex <- marketing_question_train %>%
   group_by(sex) %>%
   mutate(income_sex_cuts = cut(hhld_median_inc, breaks = 10))
@@ -231,7 +250,7 @@ ggplot(emplogit_income_sex, aes(x = midpoint, y = emplogit, color = sex)) +
   labs(x = "Income",
        y = "Empirical logits",
        caption = "Emprirical Logit plot of Income seperated by sex",
-       tag = "Fig 8: "
+       tag = "Fig 7: "
        )+
   theme(
         plot.caption.position = "plot",
@@ -240,7 +259,7 @@ ggplot(emplogit_income_sex, aes(x = midpoint, y = emplogit, color = sex)) +
 
 ```
 
-```{r EmpiricalLogitPlotAge, echo=FALSE, warning=FALSE}
+```{r EmpiricalLogitPlotAge, echo=FALSE, warning=FALSE, message = FALSE}
 logit_age <- marketing_question_train %>%
   mutate(age_cuts = cut(age, breaks = 10))
 
@@ -259,14 +278,15 @@ ggplot(emplogit_age, aes(x = midpoint, y = emplogit)) +
   labs(x = "Age",
        y = "Empirical logits",
        caption = "Emprirical Logit plot of Age",
-       tag = "Fig 9: "
+       tag = "Fig 8: "
        )+
   theme(
         plot.caption.position = "plot",
         plot.caption =element_text(hjust = 0.25, size= 13, margin = margin(t = 25)),
         plot.tag.position = c(0.06, 0.025))
 ```
-```{r EmpiricalLogitPlotIncome, echo=FALSE, warning=FALSE}
+
+```{r EmpiricalLogitPlotIncome, echo=FALSE, warning=FALSE, message = FALSE}
 logit_income <- marketing_question_train %>%
   mutate(hhld_median_inc_cuts = cut(hhld_median_inc, breaks = 10))
 
@@ -285,7 +305,7 @@ ggplot(emplogit_income, aes(x = midpoint, y = emplogit)) +
   labs(x = "Income",
        y = "Empirical logits",
        caption = "Emprirical Logit plot of Income",
-       tag = "Fig 10: "
+       tag = "Fig 9: "
        )+
   theme(
         plot.caption.position = "plot",
@@ -299,7 +319,7 @@ ggplot(emplogit_income, aes(x = midpoint, y = emplogit)) +
 EDA suggests that income, population and age should be relevant factors for our model. Furthermore, based on the nature of the data, we opted to use a generalised linear model under the binomial family. Our EDA seemed to be accurate, as initial models suggested that all three of the aforementioned factors play a significant role within the model. Sex was also correctly assumed to be insignificant, although we may note that there exists a slight relationship when looking at the combined effects of income and sex, but this was only relavent for one of the three sexes in our data. Furthermore, we discovered that the emoji used by customers (an indication of skin colour of our customers) has a significant role in regards to the model we have built so far. The interaction between income and skin colour was the most relevant, as we spotted a p-value supported trend of certain emojis (in conjunction with income) having a direct effect on the model. Tests against the emoji model versus non-emoji models indicated that the non-emoji model had a slightly smaller AIC score. Studies have shown that people of certain skin colours are known to have differences in income despite having no other discernible differences in attributes (Devaraj et. al, 2018), meaning that we may gain insight into customers that fall under this category with our current model. However, we chose to reject the emoji model in favour of our current model as the AIC indicated a better model, and p-values were significant for all variables (as opposed to not being the case for the emoji model). All other factors considered did not provide better explainability to our model, or increased accuracy. We also did not find a random effect to be needed in our model, since our sample size is large and we can be confident that we have captured every effect level needed.
 
 
-```{r ModelFinding,echo=FALSE, include=FALSE}
+```{r ModelFinding,echo=FALSE, include=FALSE, message = FALSE}
 
 #glmer for random effects, random effect to account for variance would be location
 #glm for GLM
@@ -317,7 +337,7 @@ lmtest::lrtest(model1, model3)
 #lower AIC in the simpler model coincides with the LRT conclusion, that with a p-value with 0.1421, that there is evidence that supports the null hypothesis (simpler model is as good of a fit as the larger mdoel),in the decision that the simpler model is more appropriate for the data 
 ```
 
-```{r FinalModel, echo=FALSE}
+```{r FinalModel, echo=FALSE, message = FALSE}
 coefficients_names = c("Intercept", "hhld_median_inc", "Population", "age")
 estimates = c("1.589","-0.000021", "-0.0000000648", "0.00473")
 p_values = c("1.05*10^(-31)", "3.35*10^(-45)","3.95*10^(-3)", "8.43*10^(-5)")
@@ -334,7 +354,7 @@ knitr::kable(table.data.frame, caption="Final Model Coefficients")
 The response being modeled is the number of flags. Because it is counts per session, Poisson distribution is the primary option. The number of flags depend on the duration of the sleep session -- a longer session will result in more flags than a shorter session. Therefore, logarithm of the duration is applied as an offset in the model. The observations are grouped based on the customer ID, so even though the customers are independent, the observations are not independent from each other. Therefore, a generalized linear mixed model, with the customer ID as a random effect, and Poisson distribution for the response, is appropriate for this research question.
 After removing the observations with no emojis and thus no skin tone information, the remaining dataset is plotted. Figure 1 shows that the customers' racial backgrounds are evenly distributed, for customers who have data on their emoji choices. Therefore, any bias caused by customers unwilling to represent their actual skin tones when choosing emojis is minimal. This shows that the dataset is not affected by this potential bias.
 
-```{r, fig.height=5, fig.cap="Figure 1: Proportion of Skin Tone in Customers", include = FALSE}
+```{r, fig.height=5, fig.cap="Figure 10: Proportion of Skin Tone in Customers", include = FALSE}
 train <- readRDS("data/racial_train.Rds")
 prop.table(table(train$skin_tone))
 pr <- data.frame(skin_tone = c('light', 'medium light', 'medium', 'medium dark', 'dark'),
@@ -344,6 +364,7 @@ pie<- ggplot(pr, aes(x="", y=proportion, fill=skin_tone))+
   xlab("Skin tone")
 pie
 ```
+
 There are four assumptions for Poisson distribution. 
 1.Poisson Response The response variable is a count per unit of time or space, described by a Poisson distribution.
 2.Independence The observations must be independent of one another.
@@ -353,7 +374,7 @@ If any of the assumptions are not satisfied, it will interfere with getting accu
 The mean and variance of the number of flags for different groups of skin tone are not equal. The difference between the two increases for the groups with darker skin tones. For example, for the group with dark skin tone, the variance is 16.09, and the mean is 11.79. The mean and variance of the frequency for different groups of skin tone are not equal either. The variances are always smaller than the mean, and the difference increases for groups with dark skin tone. For the group with dark skin tone, the variance of the frequency is 0.4, while the mean is 2. To handle dispersion problem, we can either use quasipossion distribution or negative binomial distribution instead of poisson distribution. 
 Figure 4 shows that the log of the mean rate is a linear function of x. 
  
-```{r, fig.height=5, fig.cap="Figure 2: Flags Boxplot for Skin Tone", include = FALSE}
+```{r, fig.height=5, fig.cap="Figure 11: Flags Boxplot for Skin Tone", include = FALSE}
 ggplot(train, aes(x = skin_tone, y = flags, color = skin_tone)) +
   geom_boxplot() +
   geom_jitter(width=0.15) +
