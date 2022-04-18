@@ -81,7 +81,7 @@ median_income <- census_data_csd %>%
 saveRDS(median_income, file = "data-raw/median_income.Rds")
 ```
 
-## Further Data Manipulation
+## Data Merge
 ```{r}
 postcode <- readRDS("data-raw/postcode.Rds")
 median_income <- readRDS("data-raw/median_income.Rds")
@@ -102,4 +102,18 @@ mi_line <- left_join(mi_line, device_data, by = "device_name")
 head(mi_line)
 mi_line <- subset(mi_line, select = -c(dob, postcode, line, CSDuid))
 saveRDS(mi_line, file = "data-raw/full.Rds")
+```
+
+## Data Preparation for Research Question 1
+```{r}
+marketing_question <- mi_line %>%
+  select(c(cust_id, sex, emoji_modifier, hhld_median_inc, 
+           Population, Recommended retail price)) %>%
+  mutate(new_customer = if_else((Line == "Advance" | Line == "Active"), 1, 0), #create categorical to see who is a new customer
+         age = as.numeric(difftime(Sys.Date(),full_clean$dob, units = "weeks"))/52.25) %>% #create an age column of the customer
+  drop_na(emoji_modifier) %>% #drop all NA values for emoji_modifier
+  drop_na(sex)  #drop all NA values for sex
+
+marketing_question <- full[!duplicated(marketing_question$cust_id), ] # remove all duplicates, as there were multiple purchases per single customer (at different locations, violates independence of observations)
+saveRDS(marketing_question, file = "data/marketing_question.Rds")
 ```
