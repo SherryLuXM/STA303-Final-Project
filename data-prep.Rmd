@@ -21,6 +21,10 @@ output:
 # Set up
 
 ```{r, libraries}
+library(tidyverse)
+library(polite)
+library(rvest)
+library(haven)
 library(cancensus)
 ```
 
