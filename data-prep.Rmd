@@ -107,20 +107,6 @@ head(mi_line)
 mi_line <- subset(mi_line, select = -c(dob, postcode, line, CSDuid))
 saveRDS(mi_line, file = "data-raw/full.Rds")
 ```
-## Split the dataset
-```{r}
-mi_line <- readRDS("data-raw/full.Rds")
-# remove duplicates, otherwise it would affect the mean and variance for different groups
-mi_line <- mi_line[!duplicated(mi_line$cust_id),]
-# split the dataset randomly
-set.seed(2022303)
-sample_size <- floor(0.7*nrow(mi_line))
-picked <- sample(seq_len(nrow(mi_line)),size = sample_size)
-train <- mi_line[picked,]
-test <- mi_line[-picked,]
-saveRDS(train, file = "data-raw/train.Rds")
-saveRDS(test, file = "data-raw/test.Rds")
-```
 
 ## dealing with duplicated customer IDs
 ```{r}
@@ -136,16 +122,45 @@ for (i in dup1$cust_id){
 saveRDS(dup, file = "data/duplicates.Rds")
 ```
 
-## Data Preparation for Research Question 1
-```{r}
-marketing_question <- mi_line %>%
-  select(c(cust_id, sex, emoji_modifier, hhld_median_inc, 
-           Population, Recommended retail price)) %>%
-  mutate(new_customer = if_else((Line == "Advance" | Line == "Active"), 1, 0), #create categorical to see who is a new customer
-         age = as.numeric(difftime(Sys.Date(),full_clean$dob, units = "weeks"))/52.25) %>% #create an age column of the customer
-  drop_na(emoji_modifier) %>% #drop all NA values for emoji_modifier
-  drop_na(sex)  #drop all NA values for sex
 
-marketing_question <- full[!duplicated(marketing_question$cust_id), ] # remove all duplicates, as there were multiple purchases per single customer (at different locations, violates independence of observations)
-saveRDS(marketing_question, file = "data/marketing_question.Rds")
+## Process data for Research Question 2, racial data modeling
+```{r}
+cust_sleep = readRDS("data-raw/cust_sleep.Rds")
+fullRds = readRDS("data-raw/full.Rds")
+
+# remove duplicates, otherwise it would affect the mean and variance for different groups
+fullRds <- fullRds[!duplicated(fullRds$cust_id),]
+full = inner_join(cust_sleep, fullRds)
+
+#glimpse(cust_sleep)
+#glimpse(fullRds)
+#glimpse(full)
+
+full <- full[!is.na(full$emoji_modifier),]
+full <- full %>%
+  mutate (skin_tone =  case_when(emoji_modifier == "U+1F3FB" ~ "light",
+                                 emoji_modifier == "U+1F3FC" ~ "medium-light",
+                                 emoji_modifier == "U+1F3FD" ~ "medium",
+                                 emoji_modifier == "U+1F3FE" ~ "medium-dark",
+                                 emoji_modifier == "U+1F3FF" ~ "dark",))
+full$skin_tone <- ordered(full$skin_tone, levels = c('light', 'medium-light', 'medium', 'medium-dark', 'dark'))
+full <- mutate(full, freq = flags/duration*60) # to account for sampling efforts, that the more someone uses a device, the more flags there might be, and get number of flags per hour <freq>
+selected <- c(1:6, 12:14, 27,28)
+full <- full[,selected]
+saveRDS(full, file ="data-raw/racialfull.Rds")
+```
+
+## Split the dataset for racial dataset
+```{r}
+mi_line <- readRDS("data-raw/racialfull.Rds")
+# remove duplicates, otherwise it would affect the mean and variance for different groups
+mi_line <- mi_line[!duplicated(mi_line$cust_id),]
+# split the dataset randomly
+set.seed(2022303)
+sample_size <- floor(0.7*nrow(mi_line))
+picked <- sample(seq_len(nrow(mi_line)),size = sample_size)
+train <- mi_line[picked,]
+test <- mi_line[-picked,]
+saveRDS(train, file = "data/racial_train.Rds")
+saveRDS(test, file = "data/racial_test.Rds")
 ```
