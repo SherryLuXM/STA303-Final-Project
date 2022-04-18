@@ -40,12 +40,11 @@ _Guidelines for the executive summary:_
 
 \newpage
 # Technical report
-_This part of the report is much more comprehensive than the executive summary. The audience is statistics/data-minded people, but you should NOT include code or unformatted R output here._
 
 
 ## Introduction
 
-_Provide a brief introduction to your report and outline what the report will cover. This section is valuable for setting scope and expectations. _
+
 
 ### Research questions
 * Do the customers using the "Active" and "Advanced" line come from a different income base compared to the traditional customers
