@@ -62,13 +62,7 @@ Do the devices' sleep tracking feature perform worse for users with darker skin?
 
 ## Data Description and Preparation
 
-There are three files sourced externally. The data on the wearable models released by Mingar, specifically with the line name paired with each model to indicate if it belongs to one of the new lines or the traditional line, is on the website https://fitnesstrackerinfohub.netlify.app/. It is scrapable with a 12-second crawl delay. This information is useful to answer the first research question, when classifying the devices.
-
-The 2016 census data is the most current census data available. It is sourced through an API provided on https://censusmapper.ca/ and by using the R package Cancensus. The focus is the 58 census subdivisions, and their associated median household total income. 
-
-The Postal Code Conversion File with the reference date August 2021 is the latest conversion file available for the 2016 census. It matches postal codes with the geographical census subdivisions. We use the newest file because it is the most comprehensive with over 142 thousands more postal codes added, compared to the previous version. Some rows are repeating and some postal codes are associated with more than one census subdivision. This problem is solved by removing the duplicates. If the duplicates are present, it would affect the mean and variance values for different groups of customers and violate the independent observation assumptions for some models.
-
-There are four other files provided by Mingar. They include the customer information, customer ID matched to their device ID, device information associated with each device ID, and customer sleep tracking history. All the files, excluding sleep tracking history, are merged together into one dataset for ease of analysis. Specifically, the customer postal codes are matched with their associated census subdivisions through the Postal Code Conversion File, then matched to the median household total income at the specific census subdivisions. The other internal data files are joined together either by the customer ID or device ID. 
+There are three files sourced externally. There are four other files provided by Mingar. They include the customer information, customer ID matched to their device ID, device information associated with each device ID, and customer sleep tracking history. All the files, excluding sleep tracking history, are merged together into one dataset for ease of analysis. Specifically, the customer postal codes are matched with their associated census subdivisions through the Postal Code Conversion File, then matched to the median household total income at the specific census subdivisions. The other internal data files are joined together either by the customer ID or device ID. 
 
 Some changes are made to the variables. We create three additional variables: age, skin tone, and a boolean variable identifying whether a customer is new versus traditional. The age is calculated from customers' date of birth, referencing against April.7, 2022, and the skin tone is identified based on the emoji type the customers use. We categorise five types of skin tones: light, medium light, medium, medium dark, and dark. The customers who don't have emojis are removed from the dataset used in answering the second research question, because we are not able to identify their race based on the emojis for the analysis. The customers using devices from the Advanced or Active line are the new customers; the ones using devices from the Run line are the traditional customers. The new customers are given a value of one, while the traditional customers are assigned a value of zero, for the identifier variable.
 
@@ -365,208 +359,21 @@ All the work we do complies with federal and local laws, including matters regar
 \newpage
 # References
 
+Devaraj, S., Quigley N, Patel P. The effects of skin tone, height, and gender on earnings. 2018. 
+https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0190640
+
+https://academic.oup.com/sleep/article/43/10/zsaa159/5902283
+
+
+Hailu   R. Fitbits and other wearables may not accurately track heart rates in people of color. 2019. https://www.statnews.com/2019/07/24/fitbit-accuracy-dark-skin/. Accessed Apr 18, 2022.
+
+Bent   B, et al.   Investigating sources of inaccuracy in wearable optical heart rate sensors. NPJ Digit Med.  2022;03:18.
 
 \newpage
 # Appendix
 
-_These appendices should outline in more detail the steps taken to access the following datasets. They should NOT include code, but should briefly describe the steps and important considerations. I.e., show that you understand what needs to be considered when web scraping, protecting licensed data, etc._
+The data on the wearable models released by Mingar, specifically with the line name paired with each model to indicate if it belongs to one of the new lines or the traditional line, is on the website https://fitnesstrackerinfohub.netlify.app/. It is scrapable with a 12-second crawl delay. This information is useful to answer the first research question, when classifying the devices.
 
-## Web scraping industry data on fitness tracker devices
-```{r}
-# webscraping
-url <- "https://fitnesstrackerinfohub.netlify.app"
+The 2016 census data is the most current census data available. It is sourced through an API provided on https://censusmapper.ca/ and by using the R package Cancensus. The focus is the 58 census subdivisions, and their associated median household total income. 
 
-target <- bow(url,
-              user_agent = "sherryxiaoman.lu@mail.utoronto.ca for STA303/1002 final project",
-              force = TRUE)
-target
-
-html <- scrape(target)
-
-device_data <- html %>% 
-  html_elements("table") %>% 
-  html_table() %>% 
-  pluck(1)
-
-saveRDS(device_data, file = "data-raw/device_data.Rds")
-```
-
-## Accessing Census data on median household income
-```{r}
-options(cancensus.api_key = "CensusMapper_c35605992b233a54f504b09dcd8d5687",
-        cancensus.cache_path = "cache")
-
-regions <- list_census_regions(dataset = "CA16")
-
-regions_filtered <-  regions %>% 
-  filter(level == "CSD") %>% # CSD are Census Subdivision; it is a geographic level
-  as_census_region_list()
-
-census_data_csd <- get_census(dataset='CA16', regions = regions_filtered,
-                          vectors=c("v_CA16_2397"),
-                          level='CSD', geo_format = "sf")
-
-median_income <- census_data_csd %>% 
-  as_tibble() %>% 
-  select(CSDuid = GeoUID, contains("median"), Population) %>% 
-  mutate(CSDuid = parse_number(CSDuid)) %>% 
-  rename(hhld_median_inc = 2)
-
-saveRDS(median_income, file = "data-raw/median_income.Rds")
-```
-
-## Accessing postcode conversion files
-```{r}
-# load postal code data
-postcode = read_sav("data-raw/pccfNat_fccpNat_082021sav.sav", col_select = c(PC, CSDuid))
-view(postcode)
-# postcode has duplicating rows
-postcode = unique(postcode) # delete duplicating rows
-saveRDS(postcode, file = "data-raw/postcode.Rds")
-```
-
-## Process data for racial data modeling
-```{r}
-cust_sleep = readRDS("data-raw/cust_sleep.Rds")
-fullRds = readRDS("data-raw/full.Rds")
-
-# remove duplicates, otherwise it would affect the mean and variance for different groups
-fullRds <- fullRds[!duplicated(fullRds$cust_id),]
-full = inner_join(cust_sleep, fullRds)
-
-#glimpse(cust_sleep)
-#glimpse(fullRds)
-#glimpse(full)
-
-full <- full[!is.na(full$emoji_modifier),]
-full <- full %>%
-  mutate (skin_tone =  case_when(emoji_modifier == "U+1F3FB" ~ "light",
-                                 emoji_modifier == "U+1F3FC" ~ "medium-light",
-                                 emoji_modifier == "U+1F3FD" ~ "medium",
-                                 emoji_modifier == "U+1F3FE" ~ "medium-dark",
-                                 emoji_modifier == "U+1F3FF" ~ "dark",))
-full$skin_tone <- ordered(full$skin_tone, levels = c('light', 'medium-light', 'medium', 'medium-dark', 'dark'))
-full <- mutate(full, freq = flags/duration*60) # to account for sampling efforts, that the more someone uses a device, the more flags there might be, and get number of flags per hour <freq>
-
-saveRDS(full, file ="data-raw/racialfull.Rds")
-```
-
-## compile mean freq for each customer
-## remove observations where there is a significant relationship between freq and dates? But we shouldn't discount for dark race, the device malfunction faster. Analyze them separately? Change dates to days using the device
-```{r}
-who <- fullRds[duplicated(fullRds$postcode),] 
-who
-```
-There are no customers who live together, so the flag issues are not caused by physical proximity.
-
-## Assumptions Check
-1.Poisson Response The response variable is a count per unit of time or space, described by a Poisson distribution.
-2.Independence The observations must be independent of one another.
-3.Mean=Variance By definition, the mean of a Poisson random variable must be equal to its variance.
-4.Linearity The log of the mean rate, log(λ), must be a linear function of x
-
-## Exploratory Data Analysis
-```{r}
-full <- readRDS("data-raw/racialfull.Rds")
-mean(full$flags)
-var(full$flags)
-
-prop.table(table(full$skin_tone)) # balanced, so don't need to concern about the effect of inaccurate emoji due to default
-
-full  %>% group_by(skin_tone)  %>% 
-  summarise(mean=mean(flags), 
-            var=var(flags), n=n())
-
-
-mean(full$freq)
-var(full$freq)
-full  %>% group_by(skin_tone)  %>% 
-  summarise(mean=mean(freq), 
-            var=var(freq), n=n()) %>% 
-knitr::kable(
-      caption="Compare mean and variance of flag frequency within each skin color group.",
-      col.names = c("Skin Tone", "Mean", "Variance", "n"))
-```
-The table shows that the variance of flags is bigger than the mean for all skin tone groups, with increasing discrepancy as the skin tone darkens. It is an violation of the third assumption for Poisson distribution.
-For <freq>, the variance is always smaller than the mean.
-
-```{r}
-ggplot(full, aes(x=flags)) + 
-  geom_histogram() +
-  theme_minimal()
-```
-
-
-```{r}
-sumStats <- full %>% group_by(skin_tone) %>% 
-  summarise(mnflags = mean(flags),
-            logmnflags = log(mnflags), n=n())
-ggplot(sumStats, aes(x=skin_tone, y=logmnflags)) +
-  geom_point()+
-  geom_smooth(method = "loess", size = 1.5)+
-  xlab("Customer Skin Tone") +
-  ylab("Log of the empirical mean of flags") +
-  theme_minimal()
-```
-It shows a linear relationship between skin tone and log of frequency, so assumption 4 for the Poisson model is validated.
-```{r}
-ggplot(full, aes(x = skin_tone, y = freq)) +
-  geom_boxplot() +
-  ylab("Flags for one customer per hour") +
-  theme_minimal()
-```
-
-```{r}
-cors <- NULL
-for (i in 1:13){
-  cors <- c(cors, cor(train$latitude, train[, (i+1)]))
-}
-cdf <- data.frame("Correlation" = cors, "Predictors" = pred)
-cdf[order(-abs(cdf$Correlation)),] 
-```
-
-## Racial data modeling
-```{r}
-model1 <- glmmTMB(flags ~ skin_tone + (1|cust_id),family=nbinom1, offset= log(duration), data=full)
-# model1 <- glmer.nb(flags~skin_tone+(1|cust_id), offset = log(duration), data=full)
-
-summary(model1)
-
-ggplot(full, aes(x=skin_tone, fill = sex)) +
-geom_bar()
-```
-
-# Wald-type confidence interval 
-```{r}
-confint(model1)
-exp(confint(model1))
-```
-
-## null model and chi-square test
-```{r}
-modela <- glmmTMB(flags ~ 1,family=nbinom1, offset= log(duration), data=full)
-modelb <- glmmTMB(flags ~ skin_tone,family=nbinom1, offset= log(duration), data=full)
-summary(modelb)
-drop_skin <- anova(modela, modelb, test.statistic = "Chisq")
-drop_skin 
-```
-The p value shows that we should include <skin_tone> in the model
-
-```{r}
-drop_cust_id <- anova(modelb, model1, test.statistic = "Chisq")
-drop_cust_id
-```
-
-# show interaction term is not needed
-```{r}
-
-
-```
-# show additional terms are not needed
-
-# residual plots
-
-# goodness-of-fit test
-```{r}
-1-pchisq(model1$deviance, model1$df.residual)  
-```
+The Postal Code Conversion File with the reference date August 2021 is the latest conversion file available for the 2016 census. It matches postal codes with the geographical census subdivisions. We use the newest file because it is the most comprehensive with over 142 thousands more postal codes added, compared to the previous version. Some rows are repeating and some postal codes are associated with more than one census subdivision. This problem is solved by removing the duplicates. If the duplicates are present, it would affect the mean and variance values for different groups of customers and violate the independent observation assumptions for some models.
