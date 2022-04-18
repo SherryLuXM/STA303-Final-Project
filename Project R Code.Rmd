@@ -93,6 +93,8 @@ new_customer_distribution_sex <- full %>%
 new_customer_distribution_sex
 ```
 ```{r distributionIncomeOnCustomerBase, echo=FALSE, warning=FALSE}
+facet_label_names <- c("0" = "Old Customer",
+                       "1" = "New Customer")
 customerbase_distribution_income <- full %>%
   ggplot(aes(x=hhld_median_inc)) +
   geom_histogram(fill = "dodgerblue2", binwidth = 7500, colour = "black") +
