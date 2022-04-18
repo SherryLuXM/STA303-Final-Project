@@ -4,20 +4,6 @@ output:
   pdf_document: default
 ---
 
-# Instructions
-
-- You only need to submit the .Rmd of this file, not a PDF.
-
-- You should __comment__ your code clearly to show what you've done to prepare the data.
-
-- The purpose of this file is to use the data in the `data-raw` folder to create the data you will use in the report. The data you will use in the report should be saved in the `data` folder. It is good professional practice to make sure you're never directly modifying your raw data, but instead creating new datasets based on merges/manipulations that you need to reuse.
-
-- Make sure you've taken a look at the hints for the web scraping and census API. 
-
-- You may find the `write_rds()` function from the `readr` package helpful (it is loaded as part of the `tidyverse`).
-
-- You do not need to keep the structure below.
-
 # Set up
 
 ```{r, libraries}
@@ -59,7 +45,7 @@ device_data <- html %>%
 saveRDS(device_data, file = "data-raw/device_data.Rds")
 ```
 
-# Census API
+## Census API
 
 ```{r}
 ## Simplify to only needed variables
@@ -104,7 +90,7 @@ head(mi_line)
 colnames(device_data)[1] <- "device_name" 
 mi_line <- left_join(mi_line, device_data, by = "device_name")
 head(mi_line)
-mi_line <- subset(mi_line, select = -c(dob, postcode, line, CSDuid))
+mi_line <- subset(mi_line, select = -c(dob, postcode, line, CSDuid)) # dropping unneeded columns
 saveRDS(mi_line, file = "data-raw/full.Rds")
 ```
 
