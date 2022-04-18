@@ -282,9 +282,19 @@ exp(confint(model1))
 
 ## null model and chi-square test
 ```{r}
-
-
+modela <- glmmTMB(flags ~ 1,family=nbinom1, offset= log(duration), data=full)
+modelb <- glmmTMB(flags ~ skin_tone,family=nbinom1, offset= log(duration), data=full)
+summary(modelb)
+drop_skin <- anova(modela, modelb, test.statistic = "Chisq")
+drop_skin 
 ```
+The p value shows that we should include <skin_tone> in the model
+
+```{r}
+drop_cust_id <- anova(modelb, model1, test.statistic = "Chisq")
+drop_cust_id
+```
+
 # show interaction term is not needed
 ```{r}
 
