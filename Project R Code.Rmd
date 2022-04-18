@@ -30,20 +30,26 @@ library(ggplot2)
 
 # Executive Summary
 
-_Guidelines for the executive summary:_
+Current scientific literature suggests that wearable devices and their various tracking methods (heart rate, sleep-tracking, etc.) may not be as accurate for those with darker skin tones due to physiological factors and perhaps negligence of inclusive design. In addition, wearable devices thus far have been typically targeted towards, and consumed by a wealthier customer base who can afford these expensive products. The current study aims to update these socioeconomic and racial findings specific to Mingar’s products. It will consider the effects of customer skin tone (using the customers preferred emoji colour) and how error-prone their wearable is. The analysis also intends to explore characteristic trends (e.g. age,  household income, etc.) among Mingar’s new customer base who purchase from newer, more affordable product lines and its traditional customer base. 
 
-* _No more than two pages_
-* _Language is appropriate for a non-technical audience_
-* _Bullet points are used where appropriate_
-*	_A small number of key visualizations and/or tables are included_
-*	_All research questions are addressed_
+Key findings summarised below:
+ New customers tend to be older with a 0.44% times increase in purchasing odds for every increase in age yearly 
+ New customers tend to be located in less densely populated areas with a 0.000006%  times reduction in odds per population unit increase 
+ New customers tend to be lower in income with a 0.02% reduction in purchasing odds per unit of income increase
+24% of the study sample population uses the lightest emoji and 18% uses the darkest emoji
+
+
+
+Limitations: 
+Emoji colour may not be indicative of actual customer race, and neglects customers who choose to use default colored emojis
+
+
 
 \newpage
 # Technical report
 
 
 ## Introduction
-
 
 
 ### Research questions
